@@ -1,9 +1,5 @@
 [workspace]
-members = [
-    "crates/server",
-    "crates/cairo1-run",
-    "crates/tracer",
-]
+members = ["crates/server", "crates/cairo1-run", "crates/tracer"]
 resolver = "2"
 
 [workspace.package]
@@ -15,22 +11,25 @@ edition = "2021"
 [workspace.dependencies]
 axum = "0.6.20"
 tower = "0.4.13"
-tower-http = {version="0.4.4", features = ["cors", "trace"]}
+tower-http = { version = "0.4.4", features = ["cors", "trace"] }
 tokio = { version = "1.33.0", features = ["full"] }
 serde = { version = "1.0.163", features = ["derive"] }
 serde_json = "1.0.104"
 url = "2.4.0"
 rand = "0.8.5"
 
-cairo-vm = { git = "https://github.com/lambdaclass/cairo-vm.git", rev = "0ea638f1227dccad33a73330cd070d4d68841ff7", features = ["cairo-1-hints"] }
-cairo-lang-compiler = "2.5.0"
-cairo-lang-sierra = "2.4.0"
-cairo-lang-sierra-type-size = "2.5.0"
-cairo-lang-sierra-to-casm = "2.5.0"
-cairo-lang-sierra-ap-change = "2.5.0"
-cairo-lang-sierra-gas = "2.5.0"
-cairo-lang-casm = "2.5.0"
-cairo-lang-utils = "2.5.0"
+cairo-vm = { git = "https://github.com/walnuthq/cairo-vm.git", rev = "1b3dcfbb82e681e6a0f2175fc9e6f70f6c84e28a", features = [
+    "cairo-1-hints",
+] }
+cairo-lang-compiler = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+cairo-lang-sierra = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+cairo-lang-sierra-type-size = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+cairo-lang-sierra-to-casm = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+cairo-lang-sierra-ap-change = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+cairo-lang-sierra-gas = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+cairo-lang-casm = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+cairo-lang-utils = { git = "https://github.com/walnuthq/cairo", rev = "0d1d8f467ec241f99014e99398317f78266aa59c" }
+
 thiserror = "1.0.56"
 bincode = { version = "2.0.0-rc.3", default-features = false, features = [
     "serde",

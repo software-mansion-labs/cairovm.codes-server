@@ -6,7 +6,7 @@ use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use rand::distributions::{Distribution, Uniform};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs, path::PathBuf};
-use tracer::{make_tracer_data, TracerData};
+use tracer::trace::{make_trace_data, TracerData};
 
 fn write_to_temp_file(content: &str) -> PathBuf {
     let current_dir = env::current_dir().expect("Failed to get current directory");
@@ -79,7 +79,15 @@ pub async fn runner_handler(
     // Delete the temporary file
     fs::remove_file(&file_path).expect("Failed to delete temporary file");
 
-    let tracer_data = make_tracer_data(trace, memory);
+    let casm_to_sierra_map = make_casm_to_sierra_map(&casm_program.debug_info, headers_len);
+
+    let tracer_data = make_trace_data(
+        trace,
+        memory,
+        &casm_program.debug_info,
+        &casm_to_sierra_map,
+        &sierra_program,
+    );
 
     let casm_program_code = instructions
         .iter()
@@ -99,7 +107,7 @@ pub async fn runner_handler(
         serialized_output,
         tracer_data,
         casm_formatted_instructions,
-        casm_to_sierra_map: make_casm_to_sierra_map(casm_program.debug_info, headers_len),
+        casm_to_sierra_map,
         sierra_formatted_program: format_sierra_program(sierra_program),
         logs: build_log_entry_from_diagnostics(diagnostics),
     }))
@@ -120,7 +128,8 @@ fn format_sierra_program(sierra_program: Program) -> SierraFormattedProgram {
         statements: sierra_program
             .statements
             .iter()
-            .map(|statement| statement.to_string())
+            .enumerate()
+            .map(|(index, statement)| format!("{} // {}", statement.to_string(), index))
             .collect(),
         funcs: sierra_program
             .funcs
@@ -131,11 +140,17 @@ fn format_sierra_program(sierra_program: Program) -> SierraFormattedProgram {
 }
 
 fn make_casm_to_sierra_map(
-    debug_info: CairoProgramDebugInfo,
+    debug_info: &CairoProgramDebugInfo,
     casm_headers_len: usize,
 ) -> HashMap<usize, Vec<usize>> {
     let mut map: HashMap<usize, Vec<usize>> = HashMap::new();
-    for (i, sierra_info) in debug_info.sierra_statement_info.iter().enumerate() {
+    let sierra_statement_info_len = debug_info.sierra_statement_info.len();
+    for (i, sierra_info) in debug_info
+        .sierra_statement_info
+        .iter()
+        .enumerate()
+        .take(sierra_statement_info_len - 1)
+    {
         let key = sierra_info.instruction_idx + casm_headers_len;
         map.entry(key).or_insert_with(Vec::new).push(i);
     }

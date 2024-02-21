@@ -49,7 +49,6 @@ use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::serde::deserialize_program::{ApTracking, FlowTrackingData, HintParams};
 use cairo_vm::types::errors::program_errors::ProgramError;
 use cairo_vm::types::relocatable::Relocatable;
-use cairo_vm::utils::bigint_to_felt;
 use cairo_vm::vm::decoding::decoder::decode_instruction;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
 use cairo_vm::vm::errors::memory_errors::MemoryError;
@@ -84,7 +83,7 @@ use std::slice::Iter;
 use std::{collections::HashMap, io, path::Path};
 use thiserror::Error;
 
-pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.5.0";
+pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.5.4";
 
 // #[derive(Parser, Debug)]
 // #[clap(author, version, about, long_about = None)]
@@ -383,7 +382,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     let data: Vec<MaybeRelocatable> = instructions
         .flat_map(|inst| inst.assemble().encode())
-        .map(|x| bigint_to_felt(&x).unwrap_or_default())
+        .map(|x| Felt252::from(&x))
         .map(MaybeRelocatable::from)
         .collect();
 
@@ -428,7 +427,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     let mut runner = CairoRunner::new_v2(&program, &layout, runner_mode)?;
     let mut vm = VirtualMachine::new(true || trace_file.is_some() || air_public_input.is_some());
-    let end = runner.initialize(&mut vm)?;
+    let end = runner.initialize(&mut vm, true)?;
 
     additional_initialization(&mut vm, data_len)?;
 
@@ -529,7 +528,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             stack_pointer.offset += size as usize;
         }
         // Set stop pointer for each builtin
-        vm.builtins_final_stack_from_stack_pointer_dict(&builtin_name_to_stack_pointer)?;
+        vm.builtins_final_stack_from_stack_pointer_dict(&builtin_name_to_stack_pointer, false)?;
 
         // Build execution public memory
         if proof_mode {
