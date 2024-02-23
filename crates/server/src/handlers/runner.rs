@@ -1,6 +1,6 @@
 use crate::handlers::errors::{build_log_entry_from_diagnostics, LogEntry, ResponseError};
 use axum::Json;
-use cairo1_run::{run_program_at_path, RunResult, CAIRO_LANG_COMPILER_VERSION};
+use cairo1_run::{run_program_at_path, RunOutput, RunResult, CAIRO_LANG_COMPILER_VERSION};
 use cairo_lang_sierra::program::Program;
 use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use rand::distributions::{Distribution, Uniform};
@@ -44,6 +44,9 @@ pub struct RunnerResult {
     casm_program_code: String,
     cairo_lang_compiler_version: String,
     serialized_output: Option<String>,
+    execution_panic_message: Option<String>,
+    is_compilation_successful: bool,
+    is_execution_successful: bool,
     tracer_data: TracerData,
     casm_formatted_instructions: Vec<String>,
     casm_to_sierra_map: HashMap<usize, Vec<usize>>,
@@ -61,7 +64,7 @@ pub async fn runner_handler(
     let RunResult {
         sierra_program,
         casm_program,
-        serialized_output,
+        output,
         trace,
         memory,
         instructions,
@@ -100,11 +103,19 @@ pub async fn runner_handler(
         .map(|instruction| instruction.to_string())
         .collect();
 
+    let (serialized_output, execution_panic_message, is_execution_successful) = match output {
+        RunOutput::Success(serialized_output) => (serialized_output, None, true),
+        RunOutput::Panic(panic_error_message) => (None, Some(panic_error_message), false),
+    };
+
     Ok(Json(RunnerResult {
         sierra_program_code: format!("{sierra_program}"),
         casm_program_code,
         cairo_lang_compiler_version: CAIRO_LANG_COMPILER_VERSION.to_string(),
         serialized_output,
+        execution_panic_message,
+        is_compilation_successful: true,
+        is_execution_successful,
         tracer_data,
         casm_formatted_instructions,
         casm_to_sierra_map,

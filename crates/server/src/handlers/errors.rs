@@ -38,6 +38,7 @@ impl Default for LogEntry {
 pub(crate) struct ResponseError {
     #[serde(skip)]
     status_code: StatusCode,
+    is_compilation_successful: bool,
     logs: Vec<LogEntry>,
     cairo_lang_compiler_version: String,
 }
@@ -47,6 +48,7 @@ impl ResponseError {
     fn new(errors: Vec<LogEntry>) -> Self {
         Self {
             status_code: StatusCode::EXPECTATION_FAILED,
+            is_compilation_successful: false,
             logs: errors,
             cairo_lang_compiler_version: CAIRO_LANG_COMPILER_VERSION.to_string(),
         }

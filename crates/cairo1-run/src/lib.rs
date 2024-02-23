@@ -264,8 +264,14 @@ impl FileWriter {
     }
 }
 
+#[derive(Debug)]
+pub enum RunOutput {
+    Success(Option<String>),
+    Panic(String),
+}
+
 pub struct RunResult {
-    pub serialized_output: Option<String>,
+    pub output: RunOutput,
     pub trace: Vec<RelocatedTraceEntry>,
     pub memory: Vec<Option<Felt252>>,
     pub sierra_program: SierraProgram,
@@ -446,6 +452,8 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         .cloned()
         .ok_or_else(|| Error::NoTypeSizeForId(return_type_id.clone()))?;
 
+    let mut panic_output: Option<String> = None;
+
     let mut return_values = vm.get_return_values(return_type_size as usize)?;
     // Check if this result is a Panic result
     if return_type_id
@@ -471,9 +479,20 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                 panic_data_start,
                 (panic_data_end - panic_data_start).map_err(VirtualMachineError::Math)?,
             )?;
-            return Err(Error::RunPanic(
-                panic_data.iter().map(|c| *c.as_ref()).collect(),
-            ));
+
+            let panic_data_felts: Vec<Felt252> = panic_data.iter().map(|c| *c.as_ref()).collect();
+            panic_output = Some(
+                panic_data_felts
+                    .iter()
+                    .map(|r| bytes_to_text(r.to_bytes_be()))
+                    .collect::<Result<Vec<String>, _>>()
+                    .map(|v| v.join(""))
+                    .ok()
+                    .unwrap_or("Failed to extract panic error".to_string()),
+            );
+            // return Err(Error::RunPanic(
+            //     panic_data.iter().map(|c| *c.as_ref()).collect(),
+            // ));
         } else {
             if return_values.len() < 3 {
                 return Err(Error::FailedToExtractReturnValues);
@@ -600,7 +619,10 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     }
 
     Ok(RunResult {
-        serialized_output: output_string,
+        output: match panic_output {
+            Some(panic_output) => RunOutput::Panic(panic_output),
+            None => RunOutput::Success(output_string),
+        },
         trace: relocated_trace,
         memory: runner.relocated_memory,
         sierra_program,
@@ -998,6 +1020,12 @@ fn serialize_output(vm: &VirtualMachine, return_values: &[MaybeRelocatable]) -> 
         }
     }
     output_string
+}
+
+fn bytes_to_text(bytes: [u8; 32]) -> Result<String, std::str::Utf8Error> {
+    let mut text = std::str::from_utf8(&bytes)?.to_string();
+    text.retain(|c| c != '\0');
+    Ok(text)
 }
 
 // #[cfg(test)]
