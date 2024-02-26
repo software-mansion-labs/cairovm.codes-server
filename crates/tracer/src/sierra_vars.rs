@@ -7,14 +7,7 @@ use cairo_lang_casm::{
 use cairo_lang_sierra::program::{GenStatement, Program};
 use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use cairo_vm::{vm::trace::trace_entry::RelocatedTraceEntry, Felt252};
-use serde::Serialize;
 use std::collections::HashMap;
-
-#[derive(Serialize, Debug)]
-pub struct SierraVariablesTraceDebugInfo {
-    pub inputs: HashMap<u64, Vec<String>>,
-    pub outputs: HashMap<u64, Vec<String>>,
-}
 
 pub fn extract_sierra_vars_values(
     trace: &Vec<RelocatedTraceEntry>,
@@ -23,14 +16,11 @@ pub fn extract_sierra_vars_values(
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
     casm_program_debug_info: &CairoProgramDebugInfo,
     sierra_program: &Program,
-) -> Vec<SierraVariablesTraceDebugInfo> {
-    let mut trace_entries_to_sierra_vars: Vec<SierraVariablesTraceDebugInfo> = Vec::new();
+) -> Vec<HashMap<u64, Vec<String>>> {
+    let mut trace_entries_to_sierra_vars: Vec<HashMap<u64, Vec<String>>> = Vec::new();
 
     for (trace_entry_index, trace_entry) in trace.iter().enumerate() {
-        trace_entries_to_sierra_vars.push(SierraVariablesTraceDebugInfo {
-            inputs: HashMap::new(),
-            outputs: HashMap::new(),
-        });
+        trace_entries_to_sierra_vars.push(HashMap::new());
 
         let casm_inst_index = pc_to_inst_indexes_map.get(&trace_entry.pc);
         if let Some(casm_inst_index) = casm_inst_index {
@@ -60,12 +50,10 @@ pub fn extract_sierra_vars_values(
                                             &output_reference_value.expression.cells,
                                             &branch_change.ap_change,
                                         );
-                                        trace_entries_to_sierra_vars[trace_entry_index]
-                                            .outputs
-                                            .insert(
-                                                branch_info.results[output_reference_index].id,
-                                                values,
-                                            );
+                                        trace_entries_to_sierra_vars[trace_entry_index].insert(
+                                            branch_info.results[output_reference_index].id,
+                                            values,
+                                        );
                                     }
                                 }
 
@@ -79,7 +67,6 @@ pub fn extract_sierra_vars_values(
                                         &ApChange::Known(0),
                                     );
                                     trace_entries_to_sierra_vars[trace_entry_index]
-                                        .inputs
                                         .insert(invocation.args[invoke_ref_index].id, values);
                                 }
                             }
@@ -94,7 +81,6 @@ pub fn extract_sierra_vars_values(
                                         &ApChange::Known(0),
                                     );
                                     trace_entries_to_sierra_vars[trace_entry_index]
-                                        .outputs
                                         .insert(return_vars[return_ref_index].id, values);
                                 }
                             }

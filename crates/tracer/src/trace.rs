@@ -1,4 +1,4 @@
-use crate::sierra_vars::{extract_sierra_vars_values, SierraVariablesTraceDebugInfo};
+use crate::sierra_vars::extract_sierra_vars_values;
 
 use byteorder::{ByteOrder, LittleEndian};
 use cairo_lang_sierra::program::Program;
@@ -50,7 +50,7 @@ pub struct TracerData {
     pub trace: Vec<RelocatedTraceEntry>,
     pub memory: HashMap<usize, String>,
     pub pc_to_inst_indexes_map: HashMap<usize, usize>,
-    pub trace_entries_to_sierra_vars: Vec<SierraVariablesTraceDebugInfo>,
+    pub trace_entries_to_sierra_vars: Vec<HashMap<u64, Vec<String>>>,
 }
 
 pub fn make_trace_data(
@@ -103,15 +103,14 @@ pub fn make_trace_data(
         .map(|(i, v)| (i + 1, v))
         .collect();
 
-    let trace_entries_to_sierra_vars: Vec<SierraVariablesTraceDebugInfo> =
-        extract_sierra_vars_values(
-            &trace,
-            &memory,
-            &pc_to_inst_indexes_map,
-            &casm_to_sierra_map,
-            &casm_program_debug_info,
-            &sierra_program,
-        );
+    let trace_entries_to_sierra_vars = extract_sierra_vars_values(
+        &trace,
+        &memory,
+        &pc_to_inst_indexes_map,
+        &casm_to_sierra_map,
+        &casm_program_debug_info,
+        &sierra_program,
+    );
 
     TracerData {
         pc_inst_map,
