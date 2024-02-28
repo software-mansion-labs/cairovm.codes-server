@@ -40,8 +40,6 @@ pub struct RunnerPayload {
 
 #[derive(Serialize)]
 pub struct RunnerResult {
-    sierra_program_code: String,
-    casm_program_code: String,
     cairo_lang_compiler_version: String,
     serialized_output: Option<String>,
     execution_panic_message: Option<String>,
@@ -62,7 +60,7 @@ pub async fn runner_handler(
     let program_arguments = payload.program_arguments.unwrap_or(String::new());
 
     let RunResult {
-        sierra_program,
+        sierra_program_with_debug,
         casm_program,
         output,
         trace,
@@ -70,6 +68,7 @@ pub async fn runner_handler(
         instructions,
         headers_len,
         diagnostics,
+        compiler_db,
     } = match run_program_at_path(&file_path, &program_arguments[..]) {
         Ok(result) => result,
         Err(error) => {
@@ -89,14 +88,9 @@ pub async fn runner_handler(
         memory,
         &casm_program.debug_info,
         &casm_to_sierra_map,
-        &sierra_program,
+        &sierra_program_with_debug,
+        &compiler_db,
     );
-
-    let casm_program_code = instructions
-        .iter()
-        .map(|instruction| instruction.to_string())
-        .collect::<Vec<_>>()
-        .join("\n");
 
     let casm_formatted_instructions = instructions
         .iter()
@@ -109,8 +103,6 @@ pub async fn runner_handler(
     };
 
     Ok(Json(RunnerResult {
-        sierra_program_code: format!("{sierra_program}"),
-        casm_program_code,
         cairo_lang_compiler_version: CAIRO_LANG_COMPILER_VERSION.to_string(),
         serialized_output,
         execution_panic_message,
@@ -119,7 +111,7 @@ pub async fn runner_handler(
         tracer_data,
         casm_formatted_instructions,
         casm_to_sierra_map,
-        sierra_formatted_program: format_sierra_program(sierra_program),
+        sierra_formatted_program: format_sierra_program(sierra_program_with_debug.program),
         logs: build_log_entry_from_diagnostics(diagnostics),
     }))
 }

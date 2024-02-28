@@ -10,8 +10,9 @@ use cairo_lang_casm::casm_extend;
 use cairo_lang_casm::hints::Hint;
 use cairo_lang_casm::instructions::Instruction;
 use cairo_lang_compiler::db;
+use cairo_lang_compiler::db::RootDatabase;
 use cairo_lang_compiler::diagnostics::DiagnosticsReporter;
-use cairo_lang_compiler::{compile_cairo_project_at_path, CompilerConfig};
+use cairo_lang_compiler::{compile_cairo_project_at_path_with_debug_info, CompilerConfig};
 use cairo_lang_sierra::extensions::bitwise::BitwiseType;
 use cairo_lang_sierra::extensions::core::{CoreLibfunc, CoreType};
 use cairo_lang_sierra::extensions::ec::EcOpType;
@@ -27,12 +28,15 @@ use cairo_lang_sierra::ids::ConcreteTypeId;
 use cairo_lang_sierra::program;
 use cairo_lang_sierra::program::Function;
 use cairo_lang_sierra::program::Program as SierraProgram;
+use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program_registry::{ProgramRegistry, ProgramRegistryError};
 use cairo_lang_sierra::{extensions::gas::CostTokenType, ProgramParser};
 use cairo_lang_sierra_ap_change::calc_ap_changes;
 use cairo_lang_sierra_gas::gas_info::GasInfo;
+use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_sierra_to_casm::compiler::CairoProgram;
 use cairo_lang_sierra_to_casm::compiler::CompilationError;
+use cairo_lang_sierra_to_casm::compiler::SierraToCasmConfig;
 use cairo_lang_sierra_to_casm::metadata::Metadata;
 use cairo_lang_sierra_to_casm::metadata::MetadataComputationConfig;
 use cairo_lang_sierra_to_casm::metadata::MetadataError;
@@ -274,11 +278,12 @@ pub struct RunResult {
     pub output: RunOutput,
     pub trace: Vec<RelocatedTraceEntry>,
     pub memory: Vec<Option<Felt252>>,
-    pub sierra_program: SierraProgram,
+    pub sierra_program_with_debug: SierraProgramWithDebug,
     pub casm_program: CairoProgram,
     pub instructions: Vec<Instruction>,
     pub headers_len: usize,
     pub diagnostics: Vec<String>,
+    pub compiler_db: RootDatabase,
 }
 
 pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result<RunResult, Error> {
@@ -312,8 +317,12 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         diagnostics_reporter,
         ..CompilerConfig::default()
     };
-    let sierra_program = compile_cairo_project_at_path(filename, compiler_config)
-        .map_err(|_| Error::DiagnosticsError(program_diagnostics.clone()))?;
+
+    let (sierra_program_with_debug, compiler_db) =
+        compile_cairo_project_at_path_with_debug_info(filename, compiler_config)
+            .map_err(|_| Error::DiagnosticsError(program_diagnostics.clone()))?;
+
+    let sierra_program = &sierra_program_with_debug.program;
 
     let metadata_config = Some(Default::default());
 
@@ -323,8 +332,14 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         ProgramRegistry::<CoreType, CoreLibfunc>::new(&sierra_program)?;
     let type_sizes =
         get_type_size_map(&sierra_program, &sierra_program_registry).unwrap_or_default();
-    let casm_program =
-        cairo_lang_sierra_to_casm::compiler::compile(&sierra_program, &metadata, gas_usage_check)?;
+    let casm_program = cairo_lang_sierra_to_casm::compiler::compile(
+        &sierra_program,
+        &metadata,
+        SierraToCasmConfig {
+            gas_usage_check,
+            max_bytecode_size: usize::MAX,
+        },
+    )?;
 
     let main_func = find_function(&sierra_program, "::main")?;
 
@@ -625,11 +640,12 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         },
         trace: relocated_trace,
         memory: runner.relocated_memory,
-        sierra_program,
+        sierra_program_with_debug,
         casm_program,
         instructions: instructions_vec,
         headers_len,
         diagnostics: program_diagnostics,
+        compiler_db,
     })
 }
 

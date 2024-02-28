@@ -1,7 +1,12 @@
-use crate::sierra_vars::extract_sierra_vars_values;
+use crate::{
+    callstack::{get_callstack, CallstackEntry},
+    sierra_to_cairo::get_sierra_to_cairo_fn_names_map,
+    sierra_vars::{extract_sierra_vars_values, SierraVariablesTraceDebugInfo},
+};
 
 use byteorder::{ByteOrder, LittleEndian};
-use cairo_lang_sierra::program::Program;
+use cairo_lang_compiler::db::RootDatabase;
+use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use cairo_vm::{
     types::instruction::{Instruction, Op1Addr},
@@ -50,6 +55,7 @@ pub struct TracerData {
     pub trace: Vec<RelocatedTraceEntry>,
     pub memory: HashMap<usize, String>,
     pub pc_to_inst_indexes_map: HashMap<usize, usize>,
+    pub callstack: Vec<Vec<CallstackEntry>>,
     pub trace_entries_to_sierra_vars: Vec<HashMap<u64, Vec<String>>>,
 }
 
@@ -58,9 +64,14 @@ pub fn make_trace_data(
     memory: Vec<Option<Felt252>>,
     casm_program_debug_info: &CairoProgramDebugInfo,
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
-    sierra_program: &Program,
+    sierra_program_with_debug: &SierraProgramWithDebug,
+    compiler_db: &RootDatabase,
 ) -> TracerData {
-    let mut pc_inst_map: HashMap<usize, InstructionSerializable> = HashMap::new();
+    let sierra_to_cairo_fn_names_map =
+        get_sierra_to_cairo_fn_names_map(&sierra_program_with_debug, &compiler_db);
+
+    let mut pc_inst_map: HashMap<usize, Instruction> = HashMap::new();
+    let mut pc_inst_serialized_map: HashMap<usize, InstructionSerializable> = HashMap::new();
     let mut pc_to_inst_indexes_map: HashMap<usize, usize> = HashMap::new();
 
     let max_pc_entry = trace.iter().max_by(|a, b| a.pc.cmp(&b.pc));
@@ -87,10 +98,11 @@ pub fn make_trace_data(
         let instruction_encoding_u64 = LittleEndian::read_u64(&instruction_encoding_bytes_le[..]);
         let instruction =
             decode_instruction(instruction_encoding_u64).expect("Failed to decode instruction");
+        pc_inst_map.insert(pc, instruction.clone());
         if instruction.op1_addr == Op1Addr::Imm {
             skip_next_pc = true;
         }
-        pc_inst_map.insert(pc, InstructionSerializable(instruction));
+        pc_inst_serialized_map.insert(pc, InstructionSerializable(instruction));
         pc_to_inst_indexes_map.insert(pc, casm_index);
         casm_index += 1;
     }
@@ -112,12 +124,22 @@ pub fn make_trace_data(
         &sierra_program,
     );
 
+    let callstack = get_callstack(
+        &trace,
+        &memory,
+        &pc_inst_map,
+        &pc_to_inst_indexes_map,
+        &casm_to_sierra_map,
+        &sierra_to_cairo_fn_names_map,
+    );
+
     TracerData {
-        pc_inst_map,
+        pc_inst_map: pc_inst_serialized_map,
         trace,
         memory: memory_map,
         pc_to_inst_indexes_map,
         trace_entries_to_sierra_vars,
+        callstack,
     }
 }
 
