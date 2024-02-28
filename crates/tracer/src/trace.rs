@@ -1,7 +1,7 @@
 use crate::{
     callstack::{get_callstack, CallstackEntry},
     sierra_to_cairo::get_sierra_to_cairo_fn_names_map,
-    sierra_vars::{extract_sierra_vars_values, SierraVariablesTraceDebugInfo},
+    sierra_vars::extract_sierra_vars_values,
 };
 
 use byteorder::{ByteOrder, LittleEndian};
@@ -121,7 +121,7 @@ pub fn make_trace_data(
         &pc_to_inst_indexes_map,
         &casm_to_sierra_map,
         &casm_program_debug_info,
-        &sierra_program,
+        &sierra_program_with_debug.program,
     );
 
     let callstack = get_callstack(
