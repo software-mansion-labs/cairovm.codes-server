@@ -8,20 +8,20 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, env, fs, path::PathBuf};
 use tracer::trace::{make_trace_data, TracerData};
 
-fn write_to_temp_file(content: &str) -> PathBuf {
+fn write_to_temp_file(content: &str) -> (PathBuf, PathBuf) {
     let current_dir = env::current_dir().expect("Failed to get current directory");
     let mut rng = rand::thread_rng();
     let alphabet = Uniform::from('a'..'z');
-    let file_name: String = std::iter::repeat_with(|| alphabet.sample(&mut rng))
+    let folder_name: String = std::iter::repeat_with(|| alphabet.sample(&mut rng))
         .take(6)
         .collect();
-    let parent_dir = current_dir.join(file_name);
+    let parent_dir = current_dir.join(&folder_name);
     if !parent_dir.exists() {
         fs::create_dir_all(&parent_dir).expect("failed to create new folder");
     }
     let file_path = parent_dir.join("main.cairo");
     fs::write(&file_path, content).expect("Failed to write to file");
-    file_path
+    (file_path, parent_dir)
 }
 
 #[derive(Serialize)]
@@ -55,7 +55,7 @@ pub struct RunnerResult {
 pub async fn runner_handler(
     Json(payload): Json<RunnerPayload>,
 ) -> Result<Json<RunnerResult>, ResponseError> {
-    let file_path = write_to_temp_file(&payload.cairo_program_code);
+    let (file_path, folder_path) = write_to_temp_file(&payload.cairo_program_code);
 
     let program_arguments = payload.program_arguments.unwrap_or(String::new());
 
@@ -73,13 +73,13 @@ pub async fn runner_handler(
         Ok(result) => result,
         Err(error) => {
             dbg!(&error);
-            fs::remove_file(&file_path).expect("Failed to delete temporary file");
+            fs::remove_dir_all(&folder_path).expect("Failed to delete temporary folder");
             return Err(ResponseError::get_error(error));
         }
     };
 
-    // Delete the temporary file
-    fs::remove_file(&file_path).expect("Failed to delete temporary file");
+    // Delete the temporary folder
+    fs::remove_dir_all(&folder_path).expect("Failed to delete temporary folder");
 
     let casm_to_sierra_map = make_casm_to_sierra_map(&casm_program.debug_info, headers_len);
 
