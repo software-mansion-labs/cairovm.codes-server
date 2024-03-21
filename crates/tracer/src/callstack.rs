@@ -1,3 +1,4 @@
+use crate::sierra_to_cairo::SierraToCairoDebugInfo;
 use byteorder::{ByteOrder, LittleEndian};
 use cairo_vm::{
     types::instruction::{Instruction, Opcode},
@@ -24,7 +25,7 @@ pub fn get_callstack(
     pc_inst_map: &HashMap<usize, Instruction>,
     pc_to_inst_indexes_map: &HashMap<usize, usize>,
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
-    sierra_to_cairo_fn_names_map: &HashMap<usize, String>,
+    sierra_to_cairo_debug_info: &SierraToCairoDebugInfo,
 ) -> Vec<Vec<CallstackEntry>> {
     let mut callstack: Vec<Vec<CallstackEntry>> = Vec::new();
 
@@ -40,7 +41,7 @@ pub fn get_callstack(
             &fp,
             &pc_to_inst_indexes_map,
             &casm_to_sierra_map,
-            &sierra_to_cairo_fn_names_map,
+            &sierra_to_cairo_debug_info,
             &mut fp_to_fn_name,
         );
 
@@ -102,7 +103,7 @@ pub fn get_callstack(
                     &fp,
                     &pc_to_inst_indexes_map,
                     &casm_to_sierra_map,
-                    &sierra_to_cairo_fn_names_map,
+                    &sierra_to_cairo_debug_info,
                     &mut fp_to_fn_name,
                 );
 
@@ -137,7 +138,7 @@ pub fn get_fn_name_at_pc(
     fp: &usize,
     pc_to_inst_indexes_map: &HashMap<usize, usize>,
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
-    sierra_to_cairo_fn_names_map: &HashMap<usize, String>,
+    sierra_to_cairo_debug_info: &SierraToCairoDebugInfo,
     fp_to_fn_name: &mut HashMap<usize, String>,
 ) -> Option<String> {
     if let Some(fn_name) = fp_to_fn_name.get(fp) {
@@ -148,9 +149,14 @@ pub fn get_fn_name_at_pc(
         let sierra_indexes = casm_to_sierra_map.get(index);
         if let Some(sierra_indexes) = sierra_indexes {
             for sierra_index in sierra_indexes {
-                if let Some(name) = sierra_to_cairo_fn_names_map.get(sierra_index) {
-                    fp_to_fn_name.insert(fp.clone(), name.clone());
-                    return Some(name.clone());
+                if let Some(sierra_statement_to_cairo_debug_info) = sierra_to_cairo_debug_info
+                    .sierra_statements_to_cairo_info
+                    .get(sierra_index)
+                {
+                    if let Some(fn_name) = &sierra_statement_to_cairo_debug_info.fn_name {
+                        fp_to_fn_name.insert(fp.clone(), fn_name.clone());
+                        return Some(fn_name.clone());
+                    }
                 }
             }
         }

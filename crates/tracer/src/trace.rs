@@ -1,6 +1,6 @@
 use crate::{
     callstack::{get_callstack, CallstackEntry},
-    sierra_to_cairo::get_sierra_to_cairo_fn_names_map,
+    sierra_to_cairo::{get_sierra_to_cairo_debug_info, SierraToCairoDebugInfo},
     sierra_vars::extract_sierra_vars_values,
 };
 
@@ -57,6 +57,7 @@ pub struct TracerData {
     pub pc_to_inst_indexes_map: HashMap<usize, usize>,
     pub callstack: Vec<Vec<CallstackEntry>>,
     pub trace_entries_to_sierra_vars: Vec<HashMap<u64, Vec<String>>>,
+    pub sierra_to_cairo_debug_info: SierraToCairoDebugInfo,
 }
 
 pub fn make_trace_data(
@@ -67,8 +68,8 @@ pub fn make_trace_data(
     sierra_program_with_debug: &SierraProgramWithDebug,
     compiler_db: &RootDatabase,
 ) -> TracerData {
-    let sierra_to_cairo_fn_names_map =
-        get_sierra_to_cairo_fn_names_map(&sierra_program_with_debug, &compiler_db);
+    let sierra_to_cairo_debug_info =
+        get_sierra_to_cairo_debug_info(&sierra_program_with_debug, &compiler_db);
 
     let mut pc_inst_map: HashMap<usize, Instruction> = HashMap::new();
     let mut pc_inst_serialized_map: HashMap<usize, InstructionSerializable> = HashMap::new();
@@ -130,7 +131,7 @@ pub fn make_trace_data(
         &pc_inst_map,
         &pc_to_inst_indexes_map,
         &casm_to_sierra_map,
-        &sierra_to_cairo_fn_names_map,
+        &sierra_to_cairo_debug_info,
     );
 
     TracerData {
@@ -140,6 +141,7 @@ pub fn make_trace_data(
         pc_to_inst_indexes_map,
         trace_entries_to_sierra_vars,
         callstack,
+        sierra_to_cairo_debug_info,
     }
 }
 
