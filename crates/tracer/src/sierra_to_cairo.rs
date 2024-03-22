@@ -52,7 +52,7 @@ pub fn get_sierra_to_cairo_debug_info(
         let syntax_node = location.syntax_node(compiler_db.upcast());
         let file_id = syntax_node.stable_ptr().file_id(compiler_db.upcast());
         let file_name = file_id.file_name(compiler_db.upcast());
-        let syntax_node_location_span = syntax_node.span(compiler_db.upcast());
+        let syntax_node_location_span = syntax_node.span_without_trivia(compiler_db.upcast());
         let start = syntax_node_location_span
             .start
             .position_in_file(compiler_db.upcast(), file_id)
