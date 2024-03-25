@@ -12,7 +12,9 @@ use cairo_lang_casm::instructions::Instruction;
 use cairo_lang_compiler::db;
 use cairo_lang_compiler::db::RootDatabase;
 use cairo_lang_compiler::diagnostics::DiagnosticsReporter;
-use cairo_lang_compiler::{compile_cairo_project_at_path_with_debug_info, CompilerConfig};
+use cairo_lang_compiler::project::setup_project;
+use cairo_lang_compiler::{compile_prepared_db, CompilerConfig};
+use cairo_lang_diagnostics::FormattedDiagnosticEntry;
 use cairo_lang_sierra::extensions::bitwise::BitwiseType;
 use cairo_lang_sierra::extensions::core::{CoreLibfunc, CoreType};
 use cairo_lang_sierra::extensions::ec::EcOpType;
@@ -87,7 +89,7 @@ use std::slice::Iter;
 use std::{collections::HashMap, io, path::Path};
 use thiserror::Error;
 
-pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.5.4";
+pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.6.3";
 
 // #[derive(Parser, Debug)]
 // #[clap(author, version, about, long_about = None)]
@@ -298,8 +300,10 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     // configure diagnostics
     let mut program_diagnostics: Vec<String> = Vec::new();
-    let diagnostics_callback = |severity, diagnostic| {
-        program_diagnostics.push(format!("{severity}: {diagnostic}"));
+    let diagnostics_callback = |diagnostic: FormattedDiagnosticEntry| {
+        let severity = diagnostic.severity();
+        let message = diagnostic.message();
+        program_diagnostics.push(format!("{severity}: {message}"));
     };
     let diagnostics_reporter = DiagnosticsReporter::callback(diagnostics_callback).allow_warnings();
 
@@ -318,8 +322,11 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         ..CompilerConfig::default()
     };
 
-    let (sierra_program_with_debug, compiler_db) =
-        compile_cairo_project_at_path_with_debug_info(filename, compiler_config)
+    let mut compiler_db = RootDatabase::builder().detect_corelib().build().unwrap();
+    let main_crate_ids = setup_project(&mut compiler_db, filename).unwrap();
+
+    let sierra_program_with_debug =
+        compile_prepared_db(&mut compiler_db, main_crate_ids, compiler_config)
             .map_err(|_| Error::DiagnosticsError(program_diagnostics.clone()))?;
 
     let sierra_program = &sierra_program_with_debug.program;

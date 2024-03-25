@@ -5,7 +5,7 @@ use cairo_lang_casm::{
     operand::{CellRef, DerefOrImmediate, Register},
 };
 use cairo_lang_sierra::program::{GenStatement, Program};
-use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
+use cairo_lang_sierra_to_casm::compiler::{CairoProgramDebugInfo, StatementKindDebugInfo};
 use cairo_vm::{vm::trace::trace_entry::RelocatedTraceEntry, Felt252};
 use std::collections::HashMap;
 
@@ -27,18 +27,26 @@ pub fn extract_sierra_vars_values(
             let sierra_statements_indexes = casm_to_sierra_map.get(&casm_inst_index);
             if let Some(sierra_statements_indexes) = sierra_statements_indexes {
                 for sierra_statement_index in sierra_statements_indexes {
-                    let sierra_refs_info = casm_program_debug_info
-                        .sierra_refs_info
+                    let sierra_statement_debug_info = casm_program_debug_info
+                        .sierra_statement_info
                         .get(*sierra_statement_index);
                     let sierra_statement = sierra_program.statements.get(*sierra_statement_index);
 
-                    if let (Some(sierra_statement), Some(sierra_refs_info)) =
-                        (sierra_statement, sierra_refs_info)
+                    if let (Some(sierra_statement), Some(sierra_statement_debug_info)) =
+                        (sierra_statement, sierra_statement_debug_info)
                     {
-                        match &sierra_statement {
-                            GenStatement::Invocation(invocation) => {
-                                for (branch_index, branch_change) in
-                                    sierra_refs_info.result_branch_changes.iter().enumerate()
+                        match (
+                            &sierra_statement,
+                            &sierra_statement_debug_info.additional_kind_info,
+                        ) {
+                            (
+                                GenStatement::Invocation(invocation),
+                                StatementKindDebugInfo::Invoke(additional_kind_info),
+                            ) => {
+                                for (branch_index, branch_change) in additional_kind_info
+                                    .result_branch_changes
+                                    .iter()
+                                    .enumerate()
                                 {
                                     let branch_info = &invocation.branches[branch_index];
                                     for (output_reference_index, output_reference_value) in
@@ -58,7 +66,7 @@ pub fn extract_sierra_vars_values(
                                 }
 
                                 for (invoke_ref_index, invoke_ref) in
-                                    sierra_refs_info.invoke_refs.iter().enumerate()
+                                    additional_kind_info.ref_values.iter().enumerate()
                                 {
                                     let values = get_values_from_cell_expressions(
                                         &memory,
@@ -70,9 +78,12 @@ pub fn extract_sierra_vars_values(
                                         .insert(invocation.args[invoke_ref_index].id, values);
                                 }
                             }
-                            GenStatement::Return(return_vars) => {
+                            (
+                                GenStatement::Return(return_vars),
+                                StatementKindDebugInfo::Return(additional_kind_info),
+                            ) => {
                                 for (return_ref_index, return_ref) in
-                                    sierra_refs_info.return_refs.iter().enumerate()
+                                    additional_kind_info.ref_values.iter().enumerate()
                                 {
                                     let values = get_values_from_cell_expressions(
                                         &memory,
@@ -84,6 +95,7 @@ pub fn extract_sierra_vars_values(
                                         .insert(return_vars[return_ref_index].id, values);
                                 }
                             }
+                            _ => {}
                         }
                     }
                 }
