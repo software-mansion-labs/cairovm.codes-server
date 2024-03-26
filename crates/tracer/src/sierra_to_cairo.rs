@@ -69,7 +69,7 @@ pub fn get_sierra_to_cairo_debug_info(
                 col: e.col,
             });
 
-        let cairo_location = if file_name == "lib.cairo" {
+        let cairo_location = if file_name != "main.cairo" {
             None
         } else {
             start.zip(end).map(|(start, end)| Location { start, end })
