@@ -18,19 +18,19 @@ serde_json = "1.0.104"
 url = "2.4.0"
 rand = "0.8.5"
 
-cairo-vm = { git = "https://github.com/walnuthq/cairo-vm.git", rev = "6ad55554a1bfd31ac63402797396d8c345a86f3a", features = [
+cairo-vm = { git = "https://github.com/walnuthq/cairo-vm.git", rev = "984c1e2f525dc0e141889d3461cd793095d784b1", features = [
     "cairo-1-hints",
 ] }
-cairo-lang-compiler = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-sierra = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-sierra-type-size = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-sierra-to-casm = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-sierra-ap-change = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-sierra-gas = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-sierra-generator = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-casm = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-utils = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
-cairo-lang-diagnostics = { git = "https://github.com/walnuthq/cairo", rev = "34f53adcb57bc5748ed079e3039c051b59df663f" }
+cairo-lang-compiler = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-sierra = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-sierra-type-size = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-sierra-to-casm = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-sierra-ap-change = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-sierra-gas = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-sierra-generator = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-casm = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-utils = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-diagnostics = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
 
 thiserror = "1.0.56"
 bincode = { version = "2.0.0-rc.3", default-features = false, features = [

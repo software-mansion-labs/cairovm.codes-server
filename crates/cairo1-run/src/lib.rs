@@ -906,7 +906,7 @@ fn create_entry_code(
     let before_final_call = ctx.current_code_offset;
     let final_call_size = 3;
     let offset = final_call_size
-        + casm_program.debug_info.sierra_statement_info[func.entry_point.0].code_offset;
+        + casm_program.debug_info.sierra_statement_info[func.entry_point.0].start_offset;
 
     casm_extend! {ctx,
         call rel offset;
