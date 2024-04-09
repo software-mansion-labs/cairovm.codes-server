@@ -463,71 +463,67 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     runner.run_until_pc(end, &mut vm, &mut hint_processor)?;
     runner.end_run(false, false, &mut vm, &mut hint_processor)?;
 
-    // Fetch return type data
-    let return_type_id = main_func
-        .signature
-        .ret_types
-        .last()
-        .ok_or(Error::NoRetTypesInSignature)?;
-    let return_type_size = type_sizes
-        .get(return_type_id)
-        .cloned()
-        .ok_or_else(|| Error::NoTypeSizeForId(return_type_id.clone()))?;
-
     let mut panic_output: Option<String> = None;
+    let mut output_string: Option<String> = None;
 
-    let mut return_values = vm.get_return_values(return_type_size as usize)?;
-    // Check if this result is a Panic result
-    if return_type_id
-        .debug_name
-        .as_ref()
-        .ok_or_else(|| Error::TypeIdNoDebugName(return_type_id.clone()))?
-        .starts_with("core::panics::PanicResult::")
-    {
-        // Check the failure flag (aka first return value)
-        if return_values.first() != Some(&MaybeRelocatable::from(0)) {
-            // In case of failure, extract the error from the return values (aka last two values)
-            let panic_data_end = return_values
-                .last()
-                .ok_or(Error::FailedToExtractReturnValues)?
-                .get_relocatable()
-                .ok_or(Error::FailedToExtractReturnValues)?;
-            let panic_data_start = return_values
-                .get(return_values.len() - 2)
-                .ok_or(Error::FailedToExtractReturnValues)?
-                .get_relocatable()
-                .ok_or(Error::FailedToExtractReturnValues)?;
-            let panic_data = vm.get_integer_range(
-                panic_data_start,
-                (panic_data_end - panic_data_start).map_err(VirtualMachineError::Math)?,
-            )?;
+    // Fetch return type data
+    let return_type_id = main_func.signature.ret_types.last();
+    if let Some(return_type_id) = return_type_id {
+        let return_type_size = type_sizes
+            .get(return_type_id)
+            .cloned()
+            .ok_or_else(|| Error::NoTypeSizeForId(return_type_id.clone()))?;
 
-            let panic_data_felts: Vec<Felt252> = panic_data.iter().map(|c| *c.as_ref()).collect();
-            panic_output = Some(
-                panic_data_felts
-                    .iter()
-                    .map(|r| bytes_to_text(r.to_bytes_be()))
-                    .collect::<Result<Vec<String>, _>>()
-                    .map(|v| v.join(""))
-                    .ok()
-                    .unwrap_or("Failed to extract panic error".to_string()),
-            );
-            // return Err(Error::RunPanic(
-            //     panic_data.iter().map(|c| *c.as_ref()).collect(),
-            // ));
-        } else {
-            if return_values.len() < 3 {
-                return Err(Error::FailedToExtractReturnValues);
+        let mut return_values = vm.get_return_values(return_type_size as usize)?;
+
+        // Check if this result is a Panic result
+        if return_type_id
+            .debug_name
+            .as_ref()
+            .ok_or_else(|| Error::TypeIdNoDebugName(return_type_id.clone()))?
+            .starts_with("core::panics::PanicResult::")
+        {
+            // Check the failure flag (aka first return value)
+            if return_values.first() != Some(&MaybeRelocatable::from(0)) {
+                // In case of failure, extract the error from the return values (aka last two values)
+                let panic_data_end = return_values
+                    .last()
+                    .ok_or(Error::FailedToExtractReturnValues)?
+                    .get_relocatable()
+                    .ok_or(Error::FailedToExtractReturnValues)?;
+                let panic_data_start = return_values
+                    .get(return_values.len() - 2)
+                    .ok_or(Error::FailedToExtractReturnValues)?
+                    .get_relocatable()
+                    .ok_or(Error::FailedToExtractReturnValues)?;
+                let panic_data = vm.get_integer_range(
+                    panic_data_start,
+                    (panic_data_end - panic_data_start).map_err(VirtualMachineError::Math)?,
+                )?;
+
+                let panic_data_felts: Vec<Felt252> =
+                    panic_data.iter().map(|c| *c.as_ref()).collect();
+                panic_output = Some(
+                    panic_data_felts
+                        .iter()
+                        .map(|r| bytes_to_text(r.to_bytes_be()))
+                        .collect::<Result<Vec<String>, _>>()
+                        .map(|v| v.join(""))
+                        .ok()
+                        .unwrap_or("Failed to extract panic error".to_string()),
+                );
+                // return Err(Error::RunPanic(
+                //     panic_data.iter().map(|c| *c.as_ref()).collect(),
+                // ));
+            } else {
+                if return_values.len() < 3 {
+                    return Err(Error::FailedToExtractReturnValues);
+                }
+                return_values = return_values[2..].to_vec()
             }
-            return_values = return_values[2..].to_vec()
         }
+        output_string = Some(serialize_output(&vm, &return_values));
     }
-
-    let output_string = if print_output {
-        Some(serialize_output(&vm, &return_values))
-    } else {
-        None
-    };
 
     // Set stop pointers for builtins so we can obtain the air public input
     if air_public_input.is_some() || cairo_pie_output.is_some() {
