@@ -132,6 +132,7 @@ pub fn make_trace_data(
         &pc_to_inst_indexes_map,
         &casm_to_sierra_map,
         &sierra_to_cairo_debug_info,
+        &sierra_program_with_debug,
     );
 
     TracerData {

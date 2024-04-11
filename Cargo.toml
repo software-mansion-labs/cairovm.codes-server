@@ -31,6 +31,7 @@ cairo-lang-sierra-generator = { git = "https://github.com/walnuthq/cairo", rev =
 cairo-lang-casm = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
 cairo-lang-utils = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
 cairo-lang-diagnostics = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
+cairo-lang-syntax = { git = "https://github.com/walnuthq/cairo", rev = "0738417ce74e178d20ee6e160fc75cd4d641f613" }
 
 thiserror = "1.0.56"
 bincode = { version = "2.0.0-rc.3", default-features = false, features = [

@@ -1,5 +1,12 @@
 use crate::sierra_to_cairo::SierraToCairoDebugInfo;
 use byteorder::{ByteOrder, LittleEndian};
+use cairo_lang_sierra::{
+    extensions::core::{CoreLibfunc, CoreType},
+    program::Function,
+    program_registry::ProgramRegistry,
+};
+use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
+use cairo_lang_sierra_type_size::{get_type_size_map, TypeSizeMap};
 use cairo_vm::{
     types::instruction::{Instruction, Opcode},
     vm::trace::trace_entry::RelocatedTraceEntry,
@@ -11,11 +18,18 @@ use std::collections::HashMap;
 const MAX_TRACEBACK_ENTRIES: usize = 100;
 
 #[derive(Serialize, Debug)]
+pub struct Param {
+    pub type_name: Option<String>,
+    pub value: usize,
+}
+
+#[derive(Serialize, Debug)]
 pub struct CallstackEntry {
     pub fp: usize,
     pub call_pc: Option<usize>,
     pub ret_pc: Option<usize>,
     pub fn_name: Option<String>,
+    pub params: Vec<Param>,
 }
 
 /// Returs callstack for each trace entry in the trace.
@@ -26,10 +40,18 @@ pub fn get_callstack(
     pc_to_inst_indexes_map: &HashMap<usize, usize>,
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
     sierra_to_cairo_debug_info: &SierraToCairoDebugInfo,
+    sierra_program_with_debug: &SierraProgramWithDebug,
 ) -> Vec<Vec<CallstackEntry>> {
     let mut callstack: Vec<Vec<CallstackEntry>> = Vec::new();
 
     let mut fp_to_fn_name: HashMap<usize, String> = HashMap::new();
+
+    let sierra_program_registry: ProgramRegistry<CoreType, CoreLibfunc> =
+        ProgramRegistry::<CoreType, CoreLibfunc>::new(&sierra_program_with_debug.program)
+            .expect("Failed to create program registry");
+    let type_sizes =
+        get_type_size_map(&sierra_program_with_debug.program, &sierra_program_registry)
+            .unwrap_or_default();
 
     for (trace_entry_index, trace_entry) in trace.iter().enumerate() {
         callstack.push(Vec::new());
@@ -45,11 +67,19 @@ pub fn get_callstack(
             &mut fp_to_fn_name,
         );
 
+        let params = match &fn_name {
+            Some(fn_name) => {
+                get_params(fn_name, sierra_program_with_debug, &type_sizes, memory, fp)
+            }
+            None => Vec::new(),
+        };
+
         let callstack_entry = CallstackEntry {
             fp,
             call_pc: None,
             ret_pc: None,
             fn_name,
+            params,
         };
 
         callstack[trace_entry_index].push(callstack_entry);
@@ -107,11 +137,19 @@ pub fn get_callstack(
                     &mut fp_to_fn_name,
                 );
 
+                let params = match &fn_name {
+                    Some(fn_name) => {
+                        get_params(fn_name, sierra_program_with_debug, &type_sizes, memory, fp)
+                    }
+                    None => Vec::new(),
+                };
+
                 let callstack_entry = CallstackEntry {
                     fp,
                     call_pc: Some(call_pc),
                     ret_pc: Some(ret_pc),
                     fn_name,
+                    params,
                 };
 
                 callstack[trace_entry_index].push(callstack_entry);
@@ -177,4 +215,53 @@ pub fn get_memory_usize_value_at_index(
         }
         _ => None,
     }
+}
+
+fn find_function<'a>(
+    sierra_program: &'a SierraProgramWithDebug,
+    function_name: &str,
+) -> Option<&'a Function> {
+    sierra_program.program.funcs.iter().find(|f| {
+        if let Some(name) = &f.id.debug_name {
+            name == function_name
+        } else {
+            false
+        }
+    })
+}
+
+fn get_params(
+    fn_name: &str,
+    sierra_program_with_debug: &SierraProgramWithDebug,
+    type_sizes: &TypeSizeMap,
+    memory: &Vec<Option<Felt252>>,
+    fp: usize,
+) -> Vec<Param> {
+    let mut params: Vec<Param> = Vec::new();
+    let function = find_function(sierra_program_with_debug, &fn_name);
+    if let Some(function) = function {
+        let mut memory_offset = 0;
+        for param_type in function.signature.param_types.iter().rev() {
+            if let Some(size) = type_sizes.get(&param_type) {
+                memory_offset += size.clone() as usize;
+                let value = get_memory_usize_value_at_index(&memory, fp - 2 - memory_offset);
+                if let Some(value) = value {
+                    params.push(Param {
+                        type_name: param_type.debug_name.clone().map(|s| s.to_string()),
+                        value,
+                    });
+                } else {
+                    println!("Failed to get value for type {:?}", param_type);
+                    params = Vec::new();
+                    break;
+                }
+            } else {
+                println!("Failed to get size for type {:?}", param_type);
+                params = Vec::new();
+                break;
+            }
+        }
+    }
+    params.reverse();
+    params
 }
