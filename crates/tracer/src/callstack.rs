@@ -252,13 +252,11 @@ fn get_params(
                     });
                 } else {
                     println!("Failed to get value for type {:?}", param_type);
-                    params = Vec::new();
-                    break;
+                    return Vec::new();
                 }
             } else {
                 println!("Failed to get size for type {:?}", param_type);
-                params = Vec::new();
-                break;
+                return Vec::new();
             }
         }
     }
