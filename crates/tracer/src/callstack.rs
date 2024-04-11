@@ -20,7 +20,7 @@ const MAX_TRACEBACK_ENTRIES: usize = 100;
 #[derive(Serialize, Debug)]
 pub struct Param {
     pub type_name: Option<String>,
-    pub value: usize,
+    pub value: Vec<usize>,
 }
 
 #[derive(Serialize, Debug)]
@@ -242,18 +242,25 @@ fn get_params(
     if let Some(function) = function {
         let mut memory_offset = 0;
         for param_type in function.signature.param_types.iter().rev() {
-            if let Some(size) = type_sizes.get(&param_type) {
-                memory_offset += size.clone() as usize;
-                let value = get_memory_usize_value_at_index(&memory, fp - 2 - memory_offset);
-                if let Some(value) = value {
-                    params.push(Param {
-                        type_name: param_type.debug_name.clone().map(|s| s.to_string()),
-                        value,
-                    });
-                } else {
-                    println!("Failed to get value for type {:?}", param_type);
-                    return Vec::new();
+            if let Some(type_size) = type_sizes.get(&param_type) {
+                let type_size_usize = type_size.clone() as usize;
+                memory_offset += type_size_usize;
+                let mut value: Vec<usize> = Vec::new();
+                for i in 0..type_size_usize {
+                    let memory_cell =
+                        get_memory_usize_value_at_index(&memory, fp - 2 - memory_offset + i);
+
+                    if let Some(memory_cell_value) = memory_cell {
+                        value.push(memory_cell_value);
+                    } else {
+                        println!("Failed to get value for type {:?}", param_type);
+                        return Vec::new();
+                    }
                 }
+                params.push(Param {
+                    type_name: param_type.debug_name.clone().map(|s| s.to_string()),
+                    value,
+                });
             } else {
                 println!("Failed to get size for type {:?}", param_type);
                 return Vec::new();
