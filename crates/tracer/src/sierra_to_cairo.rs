@@ -1,4 +1,5 @@
 use cairo_lang_compiler::db::RootDatabase;
+use cairo_lang_filesystem::{db::get_originating_location, ids::FileId, span::TextSpan};
 use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_utils::Upcast;
 use serde::Serialize;
@@ -56,26 +57,25 @@ pub fn get_sierra_to_cairo_debug_info(
             let file_id = syntax_node.stable_ptr().file_id(compiler_db.upcast());
             let file_name = file_id.file_name(compiler_db.upcast());
             let syntax_node_location_span = syntax_node.span_without_trivia(compiler_db.upcast());
-            let start = syntax_node_location_span
-                .start
-                .position_in_file(compiler_db.upcast(), file_id)
-                .map(|s| TextPosition {
-                    line: s.line,
-                    col: s.col,
-                });
-
-            let end = syntax_node_location_span
-                .end
-                .position_in_file(compiler_db.upcast(), file_id)
-                .map(|e| TextPosition {
-                    line: e.line,
-                    col: e.col,
-                });
 
             let cairo_location = if file_name != "main.cairo" {
-                None
+                let (originating_file_id, originating_text_span) = get_originating_location(
+                    compiler_db.upcast(),
+                    file_id,
+                    syntax_node_location_span,
+                );
+                let originating_file_name = originating_file_id.file_name(compiler_db.upcast());
+                if originating_file_name == "main.cairo" {
+                    get_location_from_text_span(
+                        originating_text_span,
+                        originating_file_id,
+                        compiler_db,
+                    )
+                } else {
+                    None
+                }
             } else {
-                start.zip(end).map(|(start, end)| Location { start, end })
+                get_location_from_text_span(syntax_node_location_span, file_id, compiler_db)
             };
             if cairo_location.is_some() {
                 cairo_locations.push(cairo_location.unwrap());
@@ -94,4 +94,28 @@ pub fn get_sierra_to_cairo_debug_info(
     SierraToCairoDebugInfo {
         sierra_statements_to_cairo_info,
     }
+}
+
+pub fn get_location_from_text_span(
+    text_span: TextSpan,
+    file_id: FileId,
+    compiler_db: &RootDatabase,
+) -> Option<Location> {
+    let start: Option<TextPosition> = text_span
+        .start
+        .position_in_file(compiler_db.upcast(), file_id)
+        .map(|s| TextPosition {
+            line: s.line,
+            col: s.col,
+        });
+
+    let end = text_span
+        .end
+        .position_in_file(compiler_db.upcast(), file_id)
+        .map(|e| TextPosition {
+            line: e.line,
+            col: e.col,
+        });
+
+    start.zip(end).map(|(start, end)| Location { start, end })
 }

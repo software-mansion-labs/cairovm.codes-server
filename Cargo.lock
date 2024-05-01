@@ -3054,6 +3054,7 @@ dependencies = [
  "byteorder",
  "cairo-lang-casm 2.6.3",
  "cairo-lang-compiler 2.6.3",
+ "cairo-lang-filesystem 2.6.3",
  "cairo-lang-sierra 2.6.3",
  "cairo-lang-sierra-ap-change 2.6.3",
  "cairo-lang-sierra-gas 2.6.3",
