@@ -51,9 +51,10 @@ use cairo_vm::air_public_input::PublicInputError;
 use cairo_vm::cairo_run;
 use cairo_vm::cairo_run::EncodeTraceError;
 use cairo_vm::hint_processor::cairo_1_hint_processor::hint_processor::Cairo1HintProcessor;
-use cairo_vm::serde::deserialize_program::BuiltinName;
 use cairo_vm::serde::deserialize_program::{ApTracking, FlowTrackingData, HintParams};
+use cairo_vm::types::builtin_name::BuiltinName;
 use cairo_vm::types::errors::program_errors::ProgramError;
+use cairo_vm::types::layout_name::LayoutName;
 use cairo_vm::types::relocatable::Relocatable;
 use cairo_vm::vm::decoding::decoder::decode_instruction;
 use cairo_vm::vm::errors::cairo_run_errors::CairoRunError;
@@ -61,10 +62,6 @@ use cairo_vm::vm::errors::memory_errors::MemoryError;
 use cairo_vm::vm::errors::runner_errors::RunnerError;
 use cairo_vm::vm::errors::trace_errors::TraceError;
 use cairo_vm::vm::errors::vm_errors::VirtualMachineError;
-use cairo_vm::vm::runners::builtin_runner::{
-    BITWISE_BUILTIN_NAME, EC_OP_BUILTIN_NAME, HASH_BUILTIN_NAME, OUTPUT_BUILTIN_NAME,
-    POSEIDON_BUILTIN_NAME, RANGE_CHECK_BUILTIN_NAME, SIGNATURE_BUILTIN_NAME,
-};
 use cairo_vm::vm::runners::cairo_runner::CairoArg;
 use cairo_vm::vm::runners::cairo_runner::RunnerMode;
 use cairo_vm::vm::trace::trace_entry::RelocatedTraceEntry;
@@ -78,7 +75,6 @@ use cairo_vm::{
     },
     Felt252,
 };
-// use clap::{CommandFactory, Parser, ValueHint};
 use itertools::{chain, Itertools};
 use std::borrow::Cow;
 use std::io::BufWriter;
@@ -453,7 +449,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         RunnerMode::ExecutionMode
     };
 
-    let mut runner = CairoRunner::new_v2(&program, &layout, runner_mode)?;
+    let mut runner = CairoRunner::new_v2(&program, LayoutName::all_cairo, runner_mode)?;
     let mut vm = VirtualMachine::new(true || trace_file.is_some() || air_public_input.is_some());
     let end = runner.initialize(&mut vm, true)?;
 
@@ -548,13 +544,13 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         for (id, size) in ret_types_and_sizes {
             if let Some(ref name) = id.debug_name {
                 let builtin_name = match &*name.to_string() {
-                    "RangeCheck" => RANGE_CHECK_BUILTIN_NAME,
-                    "Poseidon" => POSEIDON_BUILTIN_NAME,
-                    "EcOp" => EC_OP_BUILTIN_NAME,
-                    "Bitwise" => BITWISE_BUILTIN_NAME,
-                    "Pedersen" => HASH_BUILTIN_NAME,
-                    "Output" => OUTPUT_BUILTIN_NAME,
-                    "Ecdsa" => SIGNATURE_BUILTIN_NAME,
+                    "RangeCheck" => BuiltinName::range_check,
+                    "Poseidon" => BuiltinName::poseidon,
+                    "EcOp" => BuiltinName::ec_op,
+                    "Bitwise" => BuiltinName::bitwise,
+                    "Pedersen" => BuiltinName::pedersen,
+                    "Output" => BuiltinName::output,
+                    "Ecdsa" => BuiltinName::ecdsa,
                     _ => {
                         stack_pointer.offset += size as usize;
                         continue;
