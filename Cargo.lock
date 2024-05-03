@@ -376,9 +376,9 @@ dependencies = [
 [[package]]
 name = "cairo-lang-casm"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "indoc",
  "num-bigint",
  "num-traits 0.2.18",
@@ -412,20 +412,20 @@ dependencies = [
 [[package]]
 name = "cairo-lang-compiler"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
  "anyhow",
- "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-lowering 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-project 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-semantic 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-generator 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-lowering 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-project 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-semantic 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-generator 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "salsa",
  "smol_str",
  "thiserror",
@@ -443,9 +443,9 @@ dependencies = [
 [[package]]
 name = "cairo-lang-debug"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
 ]
 
 [[package]]
@@ -468,14 +468,14 @@ dependencies = [
 [[package]]
 name = "cairo-lang-defs"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "itertools 0.12.1",
  "salsa",
  "smol_str",
@@ -496,11 +496,11 @@ dependencies = [
 [[package]]
 name = "cairo-lang-diagnostics"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "itertools 0.12.1",
 ]
 
@@ -517,9 +517,9 @@ dependencies = [
 [[package]]
 name = "cairo-lang-eq-solver"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "good_lp",
 ]
 
@@ -540,10 +540,10 @@ dependencies = [
 [[package]]
 name = "cairo-lang-filesystem"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "path-clean",
  "salsa",
  "serde",
@@ -578,17 +578,17 @@ dependencies = [
 [[package]]
 name = "cairo-lang-lowering"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-proc-macros 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-semantic 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-proc-macros 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-semantic 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "id-arena",
  "itertools 0.12.1",
  "log",
@@ -622,13 +622,13 @@ dependencies = [
 [[package]]
 name = "cairo-lang-parser"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax-codegen 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax-codegen 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "colored",
  "itertools 0.12.1",
  "num-bigint",
@@ -660,14 +660,14 @@ dependencies = [
 [[package]]
 name = "cairo-lang-plugins"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "indent",
  "indoc",
  "itertools 0.12.1",
@@ -689,9 +689,9 @@ dependencies = [
 [[package]]
 name = "cairo-lang-proc-macros"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "quote",
  "syn 2.0.60",
 ]
@@ -713,10 +713,10 @@ dependencies = [
 [[package]]
 name = "cairo-lang-project"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "serde",
  "smol_str",
  "thiserror",
@@ -751,17 +751,17 @@ dependencies = [
 [[package]]
 name = "cairo-lang-semantic"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-plugins 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-proc-macros 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-plugins 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-proc-macros 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "id-arena",
  "indoc",
  "itertools 0.12.1",
@@ -801,11 +801,11 @@ dependencies = [
 [[package]]
 name = "cairo-lang-sierra"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
  "anyhow",
  "cairo-felt",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "const-fnv1a-hash",
  "convert_case",
  "derivative",
@@ -841,12 +841,12 @@ dependencies = [
 [[package]]
 name = "cairo-lang-sierra-ap-change"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-eq-solver 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-eq-solver 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "itertools 0.12.1",
  "num-bigint",
  "num-traits 0.2.18",
@@ -871,12 +871,12 @@ dependencies = [
 [[package]]
 name = "cairo-lang-sierra-gas"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-eq-solver 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-eq-solver 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "itertools 0.12.1",
  "num-bigint",
  "num-traits 0.2.18",
@@ -909,18 +909,18 @@ dependencies = [
 [[package]]
 name = "cairo-lang-sierra-generator"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-lowering 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-semantic 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-defs 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-lowering 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-parser 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-semantic 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "itertools 0.12.1",
  "num-traits 0.2.18",
  "once_cell",
@@ -954,16 +954,16 @@ dependencies = [
 [[package]]
 name = "cairo-lang-sierra-to-casm"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
  "assert_matches",
  "cairo-felt",
- "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-ap-change 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-gas 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-ap-change 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-gas 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "indoc",
  "itertools 0.12.1",
  "num-bigint",
@@ -984,10 +984,10 @@ dependencies = [
 [[package]]
 name = "cairo-lang-sierra-type-size"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
 ]
 
 [[package]]
@@ -1065,11 +1065,11 @@ dependencies = [
 [[package]]
 name = "cairo-lang-syntax"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
- "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-debug 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "num-bigint",
  "num-traits 0.2.18",
  "salsa",
@@ -1090,7 +1090,7 @@ dependencies = [
 [[package]]
 name = "cairo-lang-syntax-codegen"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
  "genco",
  "xshell",
@@ -1114,7 +1114,7 @@ dependencies = [
 [[package]]
 name = "cairo-lang-utils"
 version = "2.6.3"
-source = "git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41#da071d2c91c9c2bd3daf940d5de8164dda248c41"
+source = "git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73#6044fb73888102819d64b54cc58b6e0809ceac73"
 dependencies = [
  "hashbrown 0.14.5",
  "indexmap 2.2.6",
@@ -1128,14 +1128,14 @@ dependencies = [
 [[package]]
 name = "cairo-vm"
 version = "1.0.0-rc1"
-source = "git+https://github.com/walnuthq/cairo-vm.git?rev=44972aa8ccfe62b04dd4fabfe9735ac5447c6892#44972aa8ccfe62b04dd4fabfe9735ac5447c6892"
+source = "git+https://github.com/walnuthq/cairo-vm.git?rev=794dad40c8e1c596f9c3aafa9709066e5ce0f063#794dad40c8e1c596f9c3aafa9709066e5ce0f063"
 dependencies = [
  "anyhow",
  "ark-ff",
  "ark-std",
  "bincode",
  "bitvec",
- "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "cairo-lang-starknet",
  "cairo-lang-starknet-classes",
  "generic-array",
@@ -1164,16 +1164,16 @@ name = "cairo1-run"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-compiler 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-ap-change 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-gas 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-generator 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-to-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-compiler 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-diagnostics 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-ap-change 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-gas 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-generator 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-to-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "cairo-vm",
  "itertools 0.12.1",
  "thiserror",
@@ -2604,8 +2604,8 @@ name = "server"
 version = "0.1.0"
 dependencies = [
  "axum",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-to-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-to-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "cairo1-run",
  "rand",
  "serde",
@@ -3047,17 +3047,17 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "byteorder",
- "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-compiler 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-ap-change 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-gas 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-generator 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-to-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
- "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=da071d2c91c9c2bd3daf940d5de8164dda248c41)",
+ "cairo-lang-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-compiler 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-filesystem 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-ap-change 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-gas 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-generator 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-to-casm 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-sierra-type-size 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-syntax 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
+ "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "cairo-vm",
  "itertools 0.12.1",
  "num-bigint",
