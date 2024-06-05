@@ -1176,6 +1176,8 @@ dependencies = [
  "cairo-lang-utils 2.6.3 (git+https://github.com/walnuthq/cairo?rev=6044fb73888102819d64b54cc58b6e0809ceac73)",
  "cairo-vm",
  "itertools 0.12.1",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

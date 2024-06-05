@@ -30,11 +30,18 @@ use cairo_lang_sierra::ids::ConcreteTypeId;
 use cairo_lang_sierra::program;
 use cairo_lang_sierra::program::Function;
 use cairo_lang_sierra::program::Program as SierraProgram;
+use cairo_lang_sierra::program::Statement;
 use cairo_lang_sierra::program::StatementIdx;
 use cairo_lang_sierra::program_registry::{ProgramRegistry, ProgramRegistryError};
 use cairo_lang_sierra::{extensions::gas::CostTokenType, ProgramParser};
 use cairo_lang_sierra_ap_change::calc_ap_changes;
+use cairo_lang_sierra_gas::compute_costs::CostTypeTrait;
+use cairo_lang_sierra_gas::core_libfunc_cost;
+use cairo_lang_sierra_gas::core_libfunc_cost::core_libfunc_cost as libfunc_cost;
+use cairo_lang_sierra_gas::core_libfunc_cost::InvocationCostInfoProvider;
 use cairo_lang_sierra_gas::gas_info::GasInfo;
+use cairo_lang_sierra_gas::objects::ConstCost;
+use cairo_lang_sierra_gas::objects::PreCost;
 use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_sierra_to_casm::compiler::CairoProgram;
 use cairo_lang_sierra_to_casm::compiler::CompilationError;
@@ -44,6 +51,8 @@ use cairo_lang_sierra_to_casm::metadata::MetadataComputationConfig;
 use cairo_lang_sierra_to_casm::metadata::MetadataError;
 use cairo_lang_sierra_to_casm::{compiler::compile, metadata::calc_metadata};
 use cairo_lang_sierra_type_size::get_type_size_map;
+use cairo_lang_sierra_type_size::TypeSizeMap;
+use cairo_lang_utils::casts::IntoOrPanic;
 use cairo_lang_utils::extract_matches;
 use cairo_lang_utils::ordered_hash_map::OrderedHashMap;
 use cairo_lang_utils::unordered_hash_map::UnorderedHashMap;
@@ -75,6 +84,9 @@ use cairo_vm::{
     },
     Felt252,
 };
+use serde::Serialize;
+// use clap::{CommandFactory, Parser, ValueHint};
+use core::panic;
 use itertools::{chain, Itertools};
 use std::borrow::Cow;
 use std::io::BufWriter;
@@ -272,6 +284,50 @@ pub enum RunOutput {
     Panic(String),
 }
 
+#[derive(Debug, Serialize, Clone)]
+pub struct Costs {
+    /// A compile time known cost unit. This is a linear combination of the runtime tokens
+    /// (`step`, `hole`, `range_check`).
+    pub const_cost: i64,
+    // Runtime post-cost token types:
+    /// The number of steps.
+    pub step: i64,
+    /// The number of memory holes (untouched memory addresses).
+    pub hole: i64,
+    /// The number of range check builtins.
+    pub range_checks: i64,
+    /// One invocation of the pedersen hash function.
+    pub pedersen: i64,
+    /// One invocation of the Poseidon hades permutation.
+    pub poseidon: i64,
+    /// One invocation of the bitwise builtin.
+    pub bitwise: i64,
+    /// One invocation of the EC op builtin.
+    pub ec_op: i64,
+}
+
+impl Default for Costs {
+    fn default() -> Self {
+        Costs {
+            const_cost: 0,
+            step: 0,
+            hole: 0,
+            range_checks: 0,
+            pedersen: 0,
+            poseidon: 0,
+            bitwise: 0,
+            ec_op: 0,
+        }
+    }
+}
+
+#[derive(Debug, Serialize)]
+pub struct ProgramCosts {
+    function_costs: HashMap<String, Costs>,
+    variable_costs: HashMap<i64, Costs>,
+    statements_costs: HashMap<i32, Vec<StatementCosts>>,
+}
+
 pub struct RunResult {
     pub output: RunOutput,
     pub trace: Vec<RelocatedTraceEntry>,
@@ -282,6 +338,7 @@ pub struct RunResult {
     pub headers_len: usize,
     pub diagnostics: Vec<String>,
     pub compiler_db: RootDatabase,
+    pub costs: ProgramCosts,
 }
 
 pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result<RunResult, Error> {
@@ -335,6 +392,9 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         ProgramRegistry::<CoreType, CoreLibfunc>::new(&sierra_program)?;
     let type_sizes =
         get_type_size_map(&sierra_program, &sierra_program_registry).unwrap_or_default();
+
+    let libfuncs_costs = get_libfuncs_costs(sierra_program, &sierra_program_registry, &metadata);
+
     let casm_program = cairo_lang_sierra_to_casm::compiler::compile(
         &sierra_program,
         &metadata,
@@ -631,6 +691,75 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         cairo_run::write_encoded_memory(&runner.relocated_memory, &mut memory_writer)?;
         memory_writer.flush()?;
     }
+    let mut function_costs: HashMap<String, Costs> = HashMap::new();
+    let mut variable_costs: HashMap<i64, Costs> = HashMap::new();
+    for ((stm_idx, token_type), v) in metadata.gas_info.variable_values.iter() {
+        let index: i64 = stm_idx.0.try_into().expect("This shouldn't fail.");
+        if !variable_costs.contains_key(&index) {
+            let costs: Costs = Costs::default();
+            variable_costs.insert(index, costs);
+        }
+        let costs = variable_costs.get_mut(&index).unwrap();
+        match token_type {
+            CostTokenType::Const => {
+                costs.const_cost = v.into_or_panic();
+            }
+            CostTokenType::Step => {
+                costs.step = v.into_or_panic();
+            }
+            CostTokenType::Hole => {
+                costs.hole = v.into_or_panic();
+            }
+            CostTokenType::RangeCheck => {
+                costs.range_checks = v.into_or_panic();
+            }
+            CostTokenType::Pedersen => {
+                costs.pedersen = v.into_or_panic();
+            }
+            CostTokenType::Poseidon => {
+                costs.poseidon = v.into_or_panic();
+            }
+            CostTokenType::Bitwise => {
+                costs.bitwise = v.into_or_panic();
+            }
+            CostTokenType::EcOp => {
+                costs.ec_op = v.into_or_panic();
+            }
+        }
+    }
+    for (function_id, fc) in metadata.gas_info.function_costs.iter() {
+        let mut costs: Costs = Costs::default();
+        for (token_type, v) in fc.iter() {
+            match token_type {
+                CostTokenType::Const => {
+                    costs.const_cost = v.into_or_panic();
+                }
+                CostTokenType::Step => {
+                    costs.step = v.into_or_panic();
+                }
+                CostTokenType::Hole => {
+                    costs.hole = v.into_or_panic();
+                }
+                CostTokenType::RangeCheck => {
+                    costs.range_checks = v.into_or_panic();
+                }
+                CostTokenType::Pedersen => {
+                    costs.pedersen = v.into_or_panic();
+                }
+                CostTokenType::Poseidon => {
+                    costs.poseidon = v.into_or_panic();
+                }
+                CostTokenType::Bitwise => {
+                    costs.bitwise = v.into_or_panic();
+                }
+                CostTokenType::EcOp => {
+                    costs.ec_op = v.into_or_panic();
+                }
+            }
+        }
+
+        function_costs.insert(function_id.to_string(), costs);
+    }
 
     Ok(RunResult {
         output: match panic_output {
@@ -645,7 +774,28 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         headers_len,
         diagnostics: program_diagnostics,
         compiler_db,
+        costs: ProgramCosts {
+            function_costs,
+            variable_costs,
+            statements_costs: libfuncs_costs.unwrap(),
+        },
     })
+}
+
+// copied and modified
+// cairo/crates/cairo-lang-runner/src/lib.rs:134
+// cairo/crates/cairo-lang-sierra-gas/src/objects.rs:15
+pub fn token_gas_cost(token_type: CostTokenType) -> usize {
+    match token_type {
+        CostTokenType::Const => 1,
+        CostTokenType::Pedersen => 4130,
+        CostTokenType::Poseidon => 500,
+        CostTokenType::Bitwise => 594,
+        CostTokenType::EcOp => 4166,
+        CostTokenType::Step => 100,
+        CostTokenType::Hole => 10,
+        CostTokenType::RangeCheck => 70,
+    }
 }
 
 fn additional_initialization(vm: &mut VirtualMachine, data_len: usize) -> Result<(), Error> {
@@ -938,6 +1088,157 @@ fn create_metadata(
                 function_costs: Default::default(),
             },
         })
+    }
+}
+
+#[derive(Debug, Serialize)]
+enum StatementType {
+    Return,
+    Invocation,
+    Unknown,
+}
+
+#[derive(Debug, Serialize)]
+pub struct StatementCosts {
+    statement_type: StatementType,
+    statement_index: i32,
+    costs: Costs,
+}
+
+struct InvocationCostInfoProviderForCosts<
+    'a,
+    TokenUsages: Fn(CostTokenType) -> usize,
+    ApChangeVarValue: Fn() -> usize,
+> {
+    /// Registry for providing the sizes of the types.
+    type_sizes: &'a TypeSizeMap,
+    /// Closure providing the token usages for the invocation.
+    token_usages: TokenUsages,
+    /// Closure providing the ap changes for the invocation.
+    ap_change_var_value: ApChangeVarValue,
+}
+
+impl<'a, TokenUsages: Fn(CostTokenType) -> usize, ApChangeVarValue: Fn() -> usize>
+    InvocationCostInfoProvider
+    for InvocationCostInfoProviderForCosts<'a, TokenUsages, ApChangeVarValue>
+{
+    fn type_size(&self, ty: &ConcreteTypeId) -> usize {
+        self.type_sizes[ty].into_or_panic()
+    }
+
+    fn token_usages(&self, token_type: CostTokenType) -> usize {
+        (self.token_usages)(token_type)
+    }
+
+    fn ap_change_var_value(&self) -> usize {
+        (self.ap_change_var_value)()
+    }
+}
+pub fn get_libfuncs_costs(
+    sierra_program: &SierraProgram,
+    sierra_program_registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+    metadata: &Metadata,
+) -> Result<HashMap<i32, Vec<StatementCosts>>, Error> {
+    let type_size_map = get_type_size_map(sierra_program, sierra_program_registry).unwrap();
+    let mut statements_costs: HashMap<i32, Vec<StatementCosts>> = HashMap::new();
+    for i in 0..sierra_program.clone().statements.len() {
+        match sierra_program.get_statement(&StatementIdx(i)).unwrap() {
+            program::GenStatement::Invocation(invocation) => {
+                let core_libfunc = sierra_program_registry
+                    .get_libfunc(&invocation.libfunc_id)
+                    .expect("Program registry creation would have already failed.");
+                let libfunc_costs = libfunc_cost(
+                    &metadata.gas_info,
+                    &StatementIdx(i),
+                    core_libfunc,
+                    &InvocationCostInfoProviderForCosts {
+                        type_sizes: &type_size_map,
+                        token_usages: |token_type| {
+                            metadata
+                                .gas_info
+                                .variable_values
+                                .get(&(StatementIdx(i), token_type))
+                                .copied()
+                                .unwrap_or(0) as usize
+                        },
+                        ap_change_var_value: || {
+                            metadata
+                                .ap_change_info
+                                .variable_values
+                                .get(&StatementIdx(i))
+                                .copied()
+                                .unwrap_or_default()
+                        },
+                    },
+                );
+                let costs = Costs::default();
+                if libfunc_costs.len() == 0 {
+                    statements_costs.insert(
+                        i.into_or_panic(),
+                        vec![StatementCosts {
+                            statement_type: StatementType::Unknown,
+                            statement_index: i.into_or_panic(),
+                            costs: costs.clone(),
+                        }],
+                    );
+                    continue;
+                }
+                let mut costs_vec: Vec<StatementCosts> = vec![];
+                for cost in libfunc_costs {
+                    match cost {
+                        Some(c) => {
+                            let mut branch_costs = Costs::default();
+                            for (cost_type, value) in c.clone().iter() {
+                                update_costs(&mut branch_costs, cost_type, *value);
+                            }
+                            costs_vec.push(StatementCosts {
+                                statement_type: StatementType::Invocation,
+                                statement_index: i.into_or_panic(),
+                                costs: branch_costs.clone(),
+                            })
+                        }
+                        None => {
+                            costs_vec.push(StatementCosts {
+                                statement_type: StatementType::Unknown,
+                                statement_index: i.into_or_panic(),
+                                costs: Costs::default(),
+                            });
+                            continue;
+                        }
+                    }
+                }
+
+                statements_costs.insert(i.into_or_panic(), costs_vec);
+            }
+            program::GenStatement::Return(_) => {
+                statements_costs.insert(
+                    i.into_or_panic(),
+                    vec![StatementCosts {
+                        statement_type: StatementType::Return,
+                        statement_index: i.into_or_panic(),
+                        costs: Costs::default(),
+                    }],
+                );
+            }
+        }
+    }
+    Ok(statements_costs)
+}
+
+fn update_costs(costs: &mut Costs, c: &CostTokenType, v: i64) {
+    match c {
+        CostTokenType::Pedersen => costs.pedersen = v,
+        CostTokenType::Poseidon => {
+            costs.poseidon = v;
+        }
+        CostTokenType::Bitwise => {
+            costs.bitwise = v;
+        }
+        CostTokenType::EcOp => costs.ec_op = v,
+        CostTokenType::Const => costs.const_cost = v,
+        CostTokenType::Step => costs.step = v,
+        CostTokenType::Hole => costs.hole = v,
+        CostTokenType::RangeCheck => costs.range_checks = v,
     }
 }
 

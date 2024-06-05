@@ -1,6 +1,8 @@
 use crate::handlers::errors::{build_log_entry_from_diagnostics, LogEntry, ResponseError};
 use axum::Json;
-use cairo1_run::{run_program_at_path, RunOutput, RunResult, CAIRO_LANG_COMPILER_VERSION};
+use cairo1_run::{
+    run_program_at_path, ProgramCosts, RunOutput, RunResult, CAIRO_LANG_COMPILER_VERSION,
+};
 use cairo_lang_sierra::program::Program;
 use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use rand::distributions::{Distribution, Uniform};
@@ -50,6 +52,7 @@ pub struct RunnerResult {
     casm_to_sierra_map: HashMap<usize, Vec<usize>>,
     sierra_formatted_program: SierraFormattedProgram,
     logs: Vec<LogEntry>,
+    costs: ProgramCosts,
 }
 
 pub async fn runner_handler(
@@ -69,6 +72,7 @@ pub async fn runner_handler(
         headers_len,
         diagnostics,
         compiler_db,
+        costs,
     } = match run_program_at_path(&file_path, &program_arguments[..]) {
         Ok(result) => result,
         Err(error) => {
@@ -113,6 +117,7 @@ pub async fn runner_handler(
         casm_to_sierra_map,
         sierra_formatted_program: format_sierra_program(sierra_program_with_debug.program),
         logs: build_log_entry_from_diagnostics(diagnostics),
+        costs,
     }))
 }
 
