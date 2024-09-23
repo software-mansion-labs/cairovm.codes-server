@@ -296,6 +296,8 @@ pub struct Costs {
     pub hole: i64,
     /// The number of range check builtins.
     pub range_checks: i64,
+    /// The number of range check builtins.
+    pub range_checks96: i64,
     /// One invocation of the pedersen hash function.
     pub pedersen: i64,
     /// One invocation of the Poseidon hades permutation.
@@ -304,6 +306,10 @@ pub struct Costs {
     pub bitwise: i64,
     /// One invocation of the EC op builtin.
     pub ec_op: i64,
+    /// The AddMod op builtin.
+    pub add_mod: i64,
+    /// The MulMod op builtin.
+    pub mul_mod: i64,
 }
 
 impl Default for Costs {
@@ -313,10 +319,13 @@ impl Default for Costs {
             step: 0,
             hole: 0,
             range_checks: 0,
+            range_checks96: 0,
             pedersen: 0,
             poseidon: 0,
             bitwise: 0,
             ec_op: 0,
+            add_mod: 0,
+            mul_mod: 0,
         }
     }
 }
@@ -462,7 +471,8 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     let (processor_hints, program_hints) = build_hints_vec(instructions.clone());
 
-    let mut hint_processor = Cairo1HintProcessor::new(&processor_hints, RunResources::default());
+    let mut hint_processor =
+        Cairo1HintProcessor::new(&processor_hints, RunResources::default(), false);
 
     let data: Vec<MaybeRelocatable> = instructions
         .flat_map(|inst| inst.assemble().encode())
@@ -509,15 +519,16 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         RunnerMode::ExecutionMode
     };
 
-    let mut runner = CairoRunner::new_v2(&program, LayoutName::all_cairo, runner_mode)?;
-    let mut vm = VirtualMachine::new(true || trace_file.is_some() || air_public_input.is_some());
-    let end = runner.initialize(&mut vm, true)?;
+    let mut runner = CairoRunner::new_v2(&program, LayoutName::all_cairo, runner_mode, true)?;
+    let end = runner.initialize(true)?;
 
-    additional_initialization(&mut vm, data_len)?;
+    additional_initialization(&mut runner.vm, data_len)?;
 
     // Run it until the end/ infinite loop in proof_mode
-    runner.run_until_pc(end, &mut vm, &mut hint_processor)?;
-    runner.end_run(false, false, &mut vm, &mut hint_processor)?;
+    runner.run_until_pc(end, &mut hint_processor)?;
+    runner.end_run(false, false, &mut hint_processor)?;
+
+    //let result = runner.read_return_values(true);
 
     let mut panic_output: Option<String> = None;
     let mut output_string: Option<String> = None;
@@ -530,7 +541,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             .cloned()
             .ok_or_else(|| Error::NoTypeSizeForId(return_type_id.clone()))?;
 
-        let mut return_values = vm.get_return_values(return_type_size as usize)?;
+        let mut return_values = runner.vm.get_return_values(return_type_size as usize)?;
 
         // Check if this result is a Panic result
         if return_type_id
@@ -552,7 +563,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                     .ok_or(Error::FailedToExtractReturnValues)?
                     .get_relocatable()
                     .ok_or(Error::FailedToExtractReturnValues)?;
-                let panic_data = vm.get_integer_range(
+                let panic_data = runner.vm.get_integer_range(
                     panic_data_start,
                     (panic_data_end - panic_data_start).map_err(VirtualMachineError::Math)?,
                 )?;
@@ -578,7 +589,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                 return_values = return_values[2..].to_vec()
             }
         }
-        output_string = Some(serialize_output(&vm, &return_values));
+        output_string = Some(serialize_output(&runner.vm, &return_values));
     }
 
     // Set stop pointers for builtins so we can obtain the air public input
@@ -596,8 +607,9 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             .zip(ret_types_sizes.clone());
 
         let full_ret_types_size: i16 = ret_types_sizes.sum();
-        let mut stack_pointer = (vm.get_ap() - (full_ret_types_size as usize).saturating_sub(1))
-            .map_err(VirtualMachineError::Math)?;
+        let mut stack_pointer = (runner.vm.get_ap()
+            - (full_ret_types_size as usize).saturating_sub(1))
+        .map_err(VirtualMachineError::Math)?;
 
         // Calculate the stack_ptr for each return builtin in the return values
         let mut builtin_name_to_stack_pointer = HashMap::new();
@@ -621,18 +633,20 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             stack_pointer.offset += size as usize;
         }
         // Set stop pointer for each builtin
-        vm.builtins_final_stack_from_stack_pointer_dict(&builtin_name_to_stack_pointer, false)?;
+        runner
+            .vm
+            .builtins_final_stack_from_stack_pointer_dict(&builtin_name_to_stack_pointer, false)?;
 
         // Build execution public memory
         if proof_mode {
-            runner.finalize_segments(&mut vm)?;
+            runner.finalize_segments()?;
         }
     }
 
-    runner.relocate(&mut vm, true)?;
+    runner.relocate(true)?;
 
     if let Some(file_path) = air_public_input {
-        let json = runner.get_air_public_input(&vm)?.serialize_json()?;
+        let json = runner.get_air_public_input()?.serialize_json()?;
         std::fs::write(file_path, json)?;
     }
 
@@ -654,7 +668,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             .to_string();
 
         let json = runner
-            .get_air_private_input(&vm)
+            .get_air_private_input()
             .to_serializable(trace_path, memory_path)
             .serialize_json()
             .map_err(PublicInputError::Serde)?;
@@ -662,7 +676,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     }
 
     if let Some(ref file_path) = cairo_pie_output {
-        runner.get_cairo_pie(&vm)?.write_zip_file(file_path)?
+        runner.get_cairo_pie()?.write_zip_file(file_path)?
     }
 
     let relocated_trace = runner
@@ -713,6 +727,9 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             CostTokenType::RangeCheck => {
                 costs.range_checks = v.into_or_panic();
             }
+            CostTokenType::RangeCheck96 => {
+                costs.range_checks96 = v.into_or_panic();
+            }
             CostTokenType::Pedersen => {
                 costs.pedersen = v.into_or_panic();
             }
@@ -724,6 +741,12 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             }
             CostTokenType::EcOp => {
                 costs.ec_op = v.into_or_panic();
+            }
+            CostTokenType::AddMod => {
+                costs.add_mod = v.into_or_panic();
+            }
+            CostTokenType::MulMod => {
+                costs.mul_mod = v.into_or_panic();
             }
         }
     }
@@ -743,6 +766,9 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                 CostTokenType::RangeCheck => {
                     costs.range_checks = v.into_or_panic();
                 }
+                CostTokenType::RangeCheck96 => {
+                    costs.range_checks96 = v.into_or_panic();
+                }
                 CostTokenType::Pedersen => {
                     costs.pedersen = v.into_or_panic();
                 }
@@ -754,6 +780,12 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                 }
                 CostTokenType::EcOp => {
                     costs.ec_op = v.into_or_panic();
+                }
+                CostTokenType::AddMod => {
+                    costs.add_mod = v.into_or_panic();
+                }
+                CostTokenType::MulMod => {
+                    costs.mul_mod = v.into_or_panic();
                 }
             }
         }
@@ -788,13 +820,18 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 pub fn token_gas_cost(token_type: CostTokenType) -> usize {
     match token_type {
         CostTokenType::Const => 1,
-        CostTokenType::Pedersen => 4130,
-        CostTokenType::Poseidon => 500,
-        CostTokenType::Bitwise => 594,
-        CostTokenType::EcOp => 4166,
-        CostTokenType::Step => 100,
-        CostTokenType::Hole => 10,
-        CostTokenType::RangeCheck => 70,
+        CostTokenType::Step
+        | CostTokenType::Hole
+        | CostTokenType::RangeCheck
+        | CostTokenType::RangeCheck96 => {
+            panic!("Token type {:?} has no gas cost.", token_type)
+        }
+        CostTokenType::Pedersen => 4050,
+        CostTokenType::Poseidon => 491,
+        CostTokenType::Bitwise => 583,
+        CostTokenType::EcOp => 4085,
+        CostTokenType::AddMod => 230,
+        CostTokenType::MulMod => 604,
     }
 }
 
@@ -1133,6 +1170,12 @@ impl<'a, TokenUsages: Fn(CostTokenType) -> usize, ApChangeVarValue: Fn() -> usiz
     fn ap_change_var_value(&self) -> usize {
         (self.ap_change_var_value)()
     }
+    fn circuit_info(
+        &self,
+        _ty: &ConcreteTypeId,
+    ) -> &cairo_lang_sierra::extensions::circuit::CircuitInfo {
+        todo!()
+    }
 }
 pub fn get_libfuncs_costs(
     sierra_program: &SierraProgram,
@@ -1239,6 +1282,9 @@ fn update_costs(costs: &mut Costs, c: &CostTokenType, v: i64) {
         CostTokenType::Step => costs.step = v,
         CostTokenType::Hole => costs.hole = v,
         CostTokenType::RangeCheck => costs.range_checks = v,
+        CostTokenType::RangeCheck96 => costs.range_checks96 = v,
+        CostTokenType::AddMod => costs.add_mod = v,
+        CostTokenType::MulMod => costs.mul_mod = v,
     }
 }
 
