@@ -180,9 +180,9 @@ pub fn get_value_from_cell_expression(
                     let cell_ref_value =
                         LittleEndian::read_u128(&cell_ref_value_bytes_le[..]) as i128;
                     let addr = cell_ref_value + offset.clone() as i128;
-                    let value = memory[addr as usize];
-                    if let Some(value) = value {
-                        Ok(value.to_hex_string())
+                    let value = memory.get(addr as usize).cloned();
+                    if let Some(Some(value)) = value {
+                        Ok(value.to_string())
                     } else {
                         Err(GetCellRefValueError::MemoryAddressNotFound)
                     }
