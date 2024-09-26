@@ -15,6 +15,9 @@ use cairo_lang_compiler::diagnostics::DiagnosticsReporter;
 use cairo_lang_compiler::project::setup_project;
 use cairo_lang_compiler::{compile_prepared_db, CompilerConfig};
 use cairo_lang_diagnostics::FormattedDiagnosticEntry;
+use cairo_lang_filesystem::cfg::{Cfg, CfgSet};
+use cairo_lang_runner::casm_run::{CairoHintProcessor, RunFunctionContext};
+use cairo_lang_runner::{build_hints_dict, Arg, SierraCasmRunner, StarknetState};
 use cairo_lang_sierra::extensions::bitwise::BitwiseType;
 use cairo_lang_sierra::extensions::core::{CoreLibfunc, CoreType};
 use cairo_lang_sierra::extensions::ec::EcOpType;
@@ -43,6 +46,7 @@ use cairo_lang_sierra_gas::gas_info::GasInfo;
 use cairo_lang_sierra_gas::objects::ConstCost;
 use cairo_lang_sierra_gas::objects::PreCost;
 use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
+use cairo_lang_sierra_generator::replace_ids::DebugReplacer;
 use cairo_lang_sierra_to_casm::compiler::CairoProgram;
 use cairo_lang_sierra_to_casm::compiler::CompilationError;
 use cairo_lang_sierra_to_casm::compiler::SierraToCasmConfig;
@@ -52,6 +56,9 @@ use cairo_lang_sierra_to_casm::metadata::MetadataError;
 use cairo_lang_sierra_to_casm::{compiler::compile, metadata::calc_metadata};
 use cairo_lang_sierra_type_size::get_type_size_map;
 use cairo_lang_sierra_type_size::TypeSizeMap;
+use cairo_lang_starknet::contract::get_contracts_info;
+use cairo_lang_starknet::starknet_plugin_suite;
+use cairo_lang_test_plugin::test_plugin_suite;
 use cairo_lang_utils::casts::IntoOrPanic;
 use cairo_lang_utils::extract_matches;
 use cairo_lang_utils::ordered_hash_map::OrderedHashMap;
@@ -82,9 +89,9 @@ use cairo_vm::{
         runners::cairo_runner::{CairoRunner, RunResources},
         vm_core::VirtualMachine,
     },
-    Felt252,
 };
 use serde::Serialize;
+use starknet_types_core::felt::Felt as Felt252;
 // use clap::{CommandFactory, Parser, ValueHint};
 use core::panic;
 use itertools::{chain, Itertools};
@@ -97,7 +104,7 @@ use std::slice::Iter;
 use std::{collections::HashMap, io, path::Path};
 use thiserror::Error;
 
-pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.6.3";
+pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.8.0";
 
 // #[derive(Parser, Debug)]
 // #[clap(author, version, about, long_about = None)]
@@ -134,48 +141,51 @@ pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.6.3";
 //     print_output: bool,
 // }
 
-#[derive(Debug, Clone)]
-enum FuncArg {
-    Array(Vec<Felt252>),
-    Single(Felt252),
-}
-
-#[derive(Debug, Clone, Default)]
-struct FuncArgs(Vec<FuncArg>);
-
-fn process_args(value: &str) -> Result<FuncArgs, String> {
+fn process_args(value: &str) -> Result<Vec<Arg>, String> {
     if value.is_empty() {
-        return Ok(FuncArgs::default());
+        return Ok(Vec::new());
     }
+
     let mut args = Vec::new();
     let mut input = value.split(' ');
+
     while let Some(value) = input.next() {
         // First argument in an array
         if value.starts_with('[') {
-            let mut array_arg =
-                vec![Felt252::from_dec_str(value.strip_prefix('[').unwrap()).unwrap()];
+            let mut array_arg = vec![Arg::from(
+                Felt252::from_dec_str(value.strip_prefix('[').unwrap())
+                    .map_err(|e| e.to_string())?,
+            )];
+
             // Process following args in array
             let mut array_end = false;
             while !array_end {
                 if let Some(value) = input.next() {
                     // Last arg in array
                     if value.ends_with(']') {
-                        array_arg
-                            .push(Felt252::from_dec_str(value.strip_suffix(']').unwrap()).unwrap());
+                        array_arg.push(Arg::from(
+                            Felt252::from_dec_str(value.strip_suffix(']').unwrap())
+                                .map_err(|e| e.to_string())?,
+                        ));
                         array_end = true;
                     } else {
-                        array_arg.push(Felt252::from_dec_str(value).unwrap())
+                        array_arg.push(Arg::from(
+                            Felt252::from_dec_str(value).map_err(|e| e.to_string())?,
+                        ));
                     }
                 }
             }
             // Finalize array
-            args.push(FuncArg::Array(array_arg))
+            args.push(Arg::Array(array_arg));
         } else {
             // Single argument
-            args.push(FuncArg::Single(Felt252::from_dec_str(value).unwrap()))
+            args.push(Arg::from(
+                Felt252::from_dec_str(value).map_err(|e| e.to_string())?,
+            ));
         }
     }
-    Ok(FuncArgs(args))
+
+    Ok(args)
 }
 
 fn validate_layout(value: &str) -> Result<String, String> {
@@ -243,6 +253,8 @@ pub enum Error {
     // TODO: find a better error form
     #[error("Compilation error")]
     DiagnosticsError(Vec<String>),
+    #[error("Error occurred: {0}")]
+    Anyhow(#[from] anyhow::Error),
 }
 
 pub struct FileWriter {
@@ -296,6 +308,8 @@ pub struct Costs {
     pub hole: i64,
     /// The number of range check builtins.
     pub range_checks: i64,
+    /// The number of range check builtins.
+    pub range_checks96: i64,
     /// One invocation of the pedersen hash function.
     pub pedersen: i64,
     /// One invocation of the Poseidon hades permutation.
@@ -304,6 +318,10 @@ pub struct Costs {
     pub bitwise: i64,
     /// One invocation of the EC op builtin.
     pub ec_op: i64,
+    /// The AddMod op builtin.
+    pub add_mod: i64,
+    /// The MulMod op builtin.
+    pub mul_mod: i64,
 }
 
 impl Default for Costs {
@@ -313,10 +331,13 @@ impl Default for Costs {
             step: 0,
             hole: 0,
             range_checks: 0,
+            range_checks96: 0,
             pedersen: 0,
             poseidon: 0,
             bitwise: 0,
             ec_op: 0,
+            add_mod: 0,
+            mul_mod: 0,
         }
     }
 }
@@ -362,7 +383,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     // extract program arguments
     let program_args = match process_args(&arguments_as_str) {
-        Ok(result) => result.0,
+        Ok(result) => result,
         Err(error) => {
             dbg!(error);
             return Err(Error::BadArgumentStringFormat);
@@ -375,11 +396,20 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         ..CompilerConfig::default()
     };
 
-    let mut compiler_db = RootDatabase::builder().detect_corelib().build().unwrap();
+    let mut db_builder = RootDatabase::builder();
+    db_builder.detect_corelib();
+    db_builder.with_cfg(CfgSet::from_iter([
+        Cfg::name("test"),
+        Cfg::kv("target", "test"),
+    ]));
+    db_builder.with_plugin_suite(test_plugin_suite());
+    db_builder.with_plugin_suite(starknet_plugin_suite());
+    let mut compiler_db = db_builder.build().unwrap();
+
     let main_crate_ids = setup_project(&mut compiler_db, filename).unwrap();
 
     let sierra_program_with_debug =
-        compile_prepared_db(&mut compiler_db, main_crate_ids, compiler_config)
+        compile_prepared_db(&mut compiler_db, main_crate_ids.clone(), compiler_config)
             .map_err(|_| Error::DiagnosticsError(program_diagnostics.clone()))?;
 
     let sierra_program = &sierra_program_with_debug.program;
@@ -387,7 +417,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     let metadata_config = Some(Default::default());
 
     let gas_usage_check = metadata_config.is_some();
-    let metadata: Metadata = create_metadata(&sierra_program, metadata_config)?;
+    let metadata: Metadata = create_metadata(&sierra_program, metadata_config.clone())?;
     let sierra_program_registry: ProgramRegistry<CoreType, CoreLibfunc> =
         ProgramRegistry::<CoreType, CoreLibfunc>::new(&sierra_program)?;
     let type_sizes =
@@ -395,14 +425,27 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     let libfuncs_costs = get_libfuncs_costs(sierra_program, &sierra_program_registry, &metadata);
 
-    let casm_program = cairo_lang_sierra_to_casm::compiler::compile(
-        &sierra_program,
-        &metadata,
-        SierraToCasmConfig {
-            gas_usage_check,
-            max_bytecode_size: usize::MAX,
-        },
-    )?;
+    let replacer = DebugReplacer { db: &compiler_db };
+    let contracts_info = get_contracts_info(&compiler_db, main_crate_ids.clone(), &replacer)
+        .map_err(|_| {
+            Error::Anyhow(anyhow::anyhow!(
+                "Error while getting contract information".to_string()
+            ))
+        })?;
+
+    let sierra_casm_runner = SierraCasmRunner::new(
+        sierra_program.clone(),
+        metadata_config,
+        contracts_info,
+        None,
+    )
+    .map_err(|_| {
+        Error::Anyhow(anyhow::anyhow!(
+            "Error enabling running a Sierra program on the vm.".to_string()
+        ))
+    })?;
+
+    let casm_program = sierra_casm_runner.get_casm_program();
 
     let main_func = find_function(&sierra_program, "::main")?;
 
@@ -410,15 +453,13 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     // Modified entry code to be compatible with custom cairo1 Proof Mode.
     // This adds code that's needed for dictionaries, adjusts ap for builtin pointers, adds initial gas for the gas builtin if needed, and sets up other necessary code for cairo1
-    let (entry_code, builtins) = create_entry_code(
-        &sierra_program_registry,
-        &casm_program,
-        &type_sizes,
-        main_func,
-        initial_gas,
-        proof_mode,
-        &program_args,
-    )?;
+    let (entry_code, builtins) = sierra_casm_runner
+        .create_entry_code(main_func, &program_args, initial_gas)
+        .map_err(|_| {
+            Error::Anyhow(anyhow::anyhow!(
+                "Error while creating entry code".to_string()
+            ))
+        })?;
 
     // Get the user program instructions
     let program_instructions = casm_program.instructions.iter();
@@ -462,8 +503,18 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     let (processor_hints, program_hints) = build_hints_vec(instructions.clone());
 
-    let mut hint_processor = Cairo1HintProcessor::new(&processor_hints, RunResources::default());
+    let mut _hint_processor =
+        Cairo1HintProcessor::new(&processor_hints, RunResources::default(), false);
 
+    let (hints_dict, string_to_hint) = build_hints_dict(instructions.clone());
+
+    let mut hint_processor = CairoHintProcessor {
+        runner: Some(&sierra_casm_runner),
+        starknet_state: StarknetState::default(),
+        string_to_hint,
+        run_resources: RunResources::default(),
+        syscalls_used_resources: Default::default(),
+    };
     let data: Vec<MaybeRelocatable> = instructions
         .flat_map(|inst| inst.assemble().encode())
         .map(|x| Felt252::from(&x))
@@ -480,7 +531,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             // Proof mode is on top
             // jmp rel 0 is on PC == 2
             2,
-            program_hints,
+            hints_dict,
             ReferenceManager {
                 references: Vec::new(),
             },
@@ -493,7 +544,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             builtins,
             data,
             Some(0),
-            program_hints,
+            hints_dict,
             ReferenceManager {
                 references: Vec::new(),
             },
@@ -504,20 +555,19 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     };
 
     let runner_mode = if proof_mode {
-        RunnerMode::ProofModeCairo1
+        RunnerMode::ProofModeCanonical
     } else {
         RunnerMode::ExecutionMode
     };
 
-    let mut runner = CairoRunner::new_v2(&program, LayoutName::all_cairo, runner_mode)?;
-    let mut vm = VirtualMachine::new(true || trace_file.is_some() || air_public_input.is_some());
-    let end = runner.initialize(&mut vm, true)?;
+    let mut runner = CairoRunner::new_v2(&program, LayoutName::all_cairo, runner_mode, true)?;
+    let end = runner.initialize(true)?;
 
-    additional_initialization(&mut vm, data_len)?;
+    additional_initialization(&mut runner.vm, data_len)?;
 
     // Run it until the end/ infinite loop in proof_mode
-    runner.run_until_pc(end, &mut vm, &mut hint_processor)?;
-    runner.end_run(false, false, &mut vm, &mut hint_processor)?;
+    runner.run_until_pc(end, &mut hint_processor)?;
+    runner.end_run(false, false, &mut hint_processor)?;
 
     let mut panic_output: Option<String> = None;
     let mut output_string: Option<String> = None;
@@ -530,7 +580,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             .cloned()
             .ok_or_else(|| Error::NoTypeSizeForId(return_type_id.clone()))?;
 
-        let mut return_values = vm.get_return_values(return_type_size as usize)?;
+        let mut return_values = runner.vm.get_return_values(return_type_size as usize)?;
 
         // Check if this result is a Panic result
         if return_type_id
@@ -552,7 +602,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                     .ok_or(Error::FailedToExtractReturnValues)?
                     .get_relocatable()
                     .ok_or(Error::FailedToExtractReturnValues)?;
-                let panic_data = vm.get_integer_range(
+                let panic_data = runner.vm.get_integer_range(
                     panic_data_start,
                     (panic_data_end - panic_data_start).map_err(VirtualMachineError::Math)?,
                 )?;
@@ -578,7 +628,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                 return_values = return_values[2..].to_vec()
             }
         }
-        output_string = Some(serialize_output(&vm, &return_values));
+        output_string = Some(serialize_output(&runner.vm, &return_values));
     }
 
     // Set stop pointers for builtins so we can obtain the air public input
@@ -596,8 +646,9 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             .zip(ret_types_sizes.clone());
 
         let full_ret_types_size: i16 = ret_types_sizes.sum();
-        let mut stack_pointer = (vm.get_ap() - (full_ret_types_size as usize).saturating_sub(1))
-            .map_err(VirtualMachineError::Math)?;
+        let mut stack_pointer = (runner.vm.get_ap()
+            - (full_ret_types_size as usize).saturating_sub(1))
+        .map_err(VirtualMachineError::Math)?;
 
         // Calculate the stack_ptr for each return builtin in the return values
         let mut builtin_name_to_stack_pointer = HashMap::new();
@@ -611,6 +662,11 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                     "Pedersen" => BuiltinName::pedersen,
                     "Output" => BuiltinName::output,
                     "Ecdsa" => BuiltinName::ecdsa,
+                    "Keccak" => BuiltinName::keccak,
+                    "SegmentArena" => BuiltinName::segment_arena,
+                    "RangeCheck96" => BuiltinName::range_check96,
+                    "AddMod" => BuiltinName::add_mod,
+                    "MulMod" => BuiltinName::mul_mod,
                     _ => {
                         stack_pointer.offset += size as usize;
                         continue;
@@ -621,18 +677,20 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             stack_pointer.offset += size as usize;
         }
         // Set stop pointer for each builtin
-        vm.builtins_final_stack_from_stack_pointer_dict(&builtin_name_to_stack_pointer, false)?;
+        runner
+            .vm
+            .builtins_final_stack_from_stack_pointer_dict(&builtin_name_to_stack_pointer, false)?;
 
         // Build execution public memory
         if proof_mode {
-            runner.finalize_segments(&mut vm)?;
+            runner.finalize_segments()?;
         }
     }
 
-    runner.relocate(&mut vm, true)?;
+    runner.relocate(true)?;
 
     if let Some(file_path) = air_public_input {
-        let json = runner.get_air_public_input(&vm)?.serialize_json()?;
+        let json = runner.get_air_public_input()?.serialize_json()?;
         std::fs::write(file_path, json)?;
     }
 
@@ -654,7 +712,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             .to_string();
 
         let json = runner
-            .get_air_private_input(&vm)
+            .get_air_private_input()
             .to_serializable(trace_path, memory_path)
             .serialize_json()
             .map_err(PublicInputError::Serde)?;
@@ -662,7 +720,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     }
 
     if let Some(ref file_path) = cairo_pie_output {
-        runner.get_cairo_pie(&vm)?.write_zip_file(file_path)?
+        runner.get_cairo_pie()?.write_zip_file(file_path)?
     }
 
     let relocated_trace = runner
@@ -713,6 +771,9 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             CostTokenType::RangeCheck => {
                 costs.range_checks = v.into_or_panic();
             }
+            CostTokenType::RangeCheck96 => {
+                costs.range_checks96 = v.into_or_panic();
+            }
             CostTokenType::Pedersen => {
                 costs.pedersen = v.into_or_panic();
             }
@@ -724,6 +785,12 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
             }
             CostTokenType::EcOp => {
                 costs.ec_op = v.into_or_panic();
+            }
+            CostTokenType::AddMod => {
+                costs.add_mod = v.into_or_panic();
+            }
+            CostTokenType::MulMod => {
+                costs.mul_mod = v.into_or_panic();
             }
         }
     }
@@ -743,6 +810,9 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                 CostTokenType::RangeCheck => {
                     costs.range_checks = v.into_or_panic();
                 }
+                CostTokenType::RangeCheck96 => {
+                    costs.range_checks96 = v.into_or_panic();
+                }
                 CostTokenType::Pedersen => {
                     costs.pedersen = v.into_or_panic();
                 }
@@ -754,6 +824,12 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
                 }
                 CostTokenType::EcOp => {
                     costs.ec_op = v.into_or_panic();
+                }
+                CostTokenType::AddMod => {
+                    costs.add_mod = v.into_or_panic();
+                }
+                CostTokenType::MulMod => {
+                    costs.mul_mod = v.into_or_panic();
                 }
             }
         }
@@ -769,7 +845,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         trace: relocated_trace,
         memory: runner.relocated_memory,
         sierra_program_with_debug,
-        casm_program,
+        casm_program: casm_program.clone(),
         instructions: instructions_vec,
         headers_len,
         diagnostics: program_diagnostics,
@@ -788,13 +864,18 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 pub fn token_gas_cost(token_type: CostTokenType) -> usize {
     match token_type {
         CostTokenType::Const => 1,
-        CostTokenType::Pedersen => 4130,
-        CostTokenType::Poseidon => 500,
-        CostTokenType::Bitwise => 594,
-        CostTokenType::EcOp => 4166,
-        CostTokenType::Step => 100,
-        CostTokenType::Hole => 10,
-        CostTokenType::RangeCheck => 70,
+        CostTokenType::Step
+        | CostTokenType::Hole
+        | CostTokenType::RangeCheck
+        | CostTokenType::RangeCheck96 => {
+            panic!("Token type {:?} has no gas cost.", token_type)
+        }
+        CostTokenType::Pedersen => 4050,
+        CostTokenType::Poseidon => 491,
+        CostTokenType::Bitwise => 583,
+        CostTokenType::EcOp => 4085,
+        CostTokenType::AddMod => 230,
+        CostTokenType::MulMod => 604,
     }
 }
 
@@ -905,159 +986,159 @@ fn create_code_footer() -> Vec<Instruction> {
     }
     .instructions
 }
-
-/// Returns the instructions to add to the beginning of the code to successfully call the main
-/// function, as well as the builtins required to execute the program.
-fn create_entry_code(
-    sierra_program_registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-    casm_program: &CairoProgram,
-    type_sizes: &UnorderedHashMap<ConcreteTypeId, i16>,
-    func: &Function,
-    initial_gas: usize,
-    proof_mode: bool,
-    args: &Vec<FuncArg>,
-) -> Result<(Vec<Instruction>, Vec<BuiltinName>), Error> {
-    let mut ctx = casm! {};
-    // The builtins in the formatting expected by the runner.
-    let (builtins, builtin_offset) = get_function_builtins(func);
-    // Load all vecs to memory.
-    // Load all array args content to memory.
-    let mut array_args_data = vec![];
-    let mut ap_offset: i16 = 0;
-    for arg in args {
-        let FuncArg::Array(values) = arg else {
-            continue;
-        };
-        array_args_data.push(ap_offset);
-        casm_extend! {ctx,
-            %{ memory[ap + 0] = segments.add() %}
-            ap += 1;
-        }
-        for (i, v) in values.iter().enumerate() {
-            let arr_at = (i + 1) as i16;
-            casm_extend! {ctx,
-                [ap + 0] = (v.to_bigint());
-                [ap + 0] = [[ap - arr_at] + (i as i16)], ap++;
-            };
-        }
-        ap_offset += (1 + values.len()) as i16;
-    }
-    let mut array_args_data_iter = array_args_data.iter();
-    let after_arrays_data_offset = ap_offset;
-    let mut arg_iter = args.iter().enumerate();
-    let mut param_index = 0;
-    let mut expected_arguments_size = 0;
-    if func.signature.param_types.iter().any(|ty| {
-        get_info(sierra_program_registry, ty)
-            .map(|x| x.long_id.generic_id == SegmentArenaType::ID)
-            .unwrap_or_default()
-    }) {
-        casm_extend! {ctx,
-            // SegmentArena segment.
-            %{ memory[ap + 0] = segments.add() %}
-            // Infos segment.
-            %{ memory[ap + 1] = segments.add() %}
-            ap += 2;
-            [ap + 0] = 0, ap++;
-            // Write Infos segment, n_constructed (0), and n_destructed (0) to the segment.
-            [ap - 2] = [[ap - 3]];
-            [ap - 1] = [[ap - 3] + 1];
-            [ap - 1] = [[ap - 3] + 2];
-        }
-        ap_offset += 3;
-    }
-    for ty in func.signature.param_types.iter() {
-        let info = get_info(sierra_program_registry, ty)
-            .ok_or_else(|| Error::NoInfoForType(ty.clone()))?;
-        let generic_ty = &info.long_id.generic_id;
-        if let Some(offset) = builtin_offset.get(generic_ty) {
-            let mut offset = *offset;
-            if proof_mode {
-                // Everything is off by 2 due to the proof mode header
-                offset += 2;
-            }
-            casm_extend! {ctx,
-                [ap + 0] = [fp - offset], ap++;
-            }
-            ap_offset += 1;
-        } else if generic_ty == &SystemType::ID {
-            casm_extend! {ctx,
-                %{ memory[ap + 0] = segments.add() %}
-                ap += 1;
-            }
-            ap_offset += 1;
-        } else if generic_ty == &GasBuiltinType::ID {
-            casm_extend! {ctx,
-                [ap + 0] = initial_gas, ap++;
-            }
-            ap_offset += 1;
-        } else if generic_ty == &SegmentArenaType::ID {
-            let offset = -ap_offset + after_arrays_data_offset;
-            casm_extend! {ctx,
-                [ap + 0] = [ap + offset] + 3, ap++;
-            }
-            ap_offset += 1;
-        } else {
-            let ty_size = type_sizes[ty];
-            let param_ap_offset_end = ap_offset + ty_size;
-            expected_arguments_size += ty_size;
-            while ap_offset < param_ap_offset_end {
-                let Some((arg_index, arg)) = arg_iter.next() else {
-                    break;
-                };
-                match arg {
-                    FuncArg::Single(value) => {
-                        casm_extend! {ctx,
-                            [ap + 0] = (value.to_bigint()), ap++;
-                        }
-                        ap_offset += 1;
-                    }
-                    FuncArg::Array(values) => {
-                        let offset = -ap_offset + array_args_data_iter.next().unwrap();
-                        casm_extend! {ctx,
-                            [ap + 0] = [ap + (offset)], ap++;
-                            [ap + 0] = [ap - 1] + (values.len()), ap++;
-                        }
-                        ap_offset += 2;
-                        if ap_offset > param_ap_offset_end {
-                            return Err(Error::ArgumentUnaligned {
-                                param_index,
-                                arg_index,
-                            });
-                        }
-                    }
-                }
-            }
-            param_index += 1;
-        };
-    }
-    let actual_args_size = args
-        .iter()
-        .map(|arg| match arg {
-            FuncArg::Single(_) => 1,
-            FuncArg::Array(_) => 2,
-        })
-        .sum::<i16>();
-    if expected_arguments_size != actual_args_size {
-        return Err(Error::ArgumentsSizeMismatch {
-            expected: expected_arguments_size,
-            actual: actual_args_size,
-        });
-    }
-
-    let before_final_call = ctx.current_code_offset;
-    let final_call_size = 3;
-    let offset = final_call_size
-        + casm_program.debug_info.sierra_statement_info[func.entry_point.0].start_offset;
-
-    casm_extend! {ctx,
-        call rel offset;
-        ret;
-    }
-    assert_eq!(before_final_call + final_call_size, ctx.current_code_offset);
-
-    Ok((ctx.instructions, builtins))
-}
+//
+///// Returns the instructions to add to the beginning of the code to successfully call the main
+///// function, as well as the builtins required to execute the program.
+//fn create_entry_code(
+//    sierra_program_registry: &ProgramRegistry<CoreType, CoreLibfunc>,
+//    casm_program: &CairoProgram,
+//    type_sizes: &UnorderedHashMap<ConcreteTypeId, i16>,
+//    func: &Function,
+//    initial_gas: usize,
+//    proof_mode: bool,
+//    args: &Vec<FuncArg>,
+//) -> Result<(Vec<Instruction>, Vec<BuiltinName>), Error> {
+//    let mut ctx = casm! {};
+//    // The builtins in the formatting expected by the runner.
+//    let (builtins, builtin_offset) = get_function_builtins(func);
+//    // Load all vecs to memory.
+//    // Load all array args content to memory.
+//    let mut array_args_data = vec![];
+//    let mut ap_offset: i16 = 0;
+//    for arg in args {
+//        let FuncArg::Array(values) = arg else {
+//            continue;
+//        };
+//        array_args_data.push(ap_offset);
+//        casm_extend! {ctx,
+//            %{ memory[ap + 0] = segments.add() %}
+//            ap += 1;
+//        }
+//        for (i, v) in values.iter().enumerate() {
+//            let arr_at = (i + 1) as i16;
+//            casm_extend! {ctx,
+//                [ap + 0] = (v.to_bigint());
+//                [ap + 0] = [[ap - arr_at] + (i as i16)], ap++;
+//            };
+//        }
+//        ap_offset += (1 + values.len()) as i16;
+//    }
+//    let mut array_args_data_iter = array_args_data.iter();
+//    let after_arrays_data_offset = ap_offset;
+//    let mut arg_iter = args.iter().enumerate();
+//    let mut param_index = 0;
+//    let mut expected_arguments_size = 0;
+//    if func.signature.param_types.iter().any(|ty| {
+//        get_info(sierra_program_registry, ty)
+//            .map(|x| x.long_id.generic_id == SegmentArenaType::ID)
+//            .unwrap_or_default()
+//    }) {
+//        casm_extend! {ctx,
+//            // SegmentArena segment.
+//            %{ memory[ap + 0] = segments.add() %}
+//            // Infos segment.
+//            %{ memory[ap + 1] = segments.add() %}
+//            ap += 2;
+//            [ap + 0] = 0, ap++;
+//            // Write Infos segment, n_constructed (0), and n_destructed (0) to the segment.
+//            [ap - 2] = [[ap - 3]];
+//            [ap - 1] = [[ap - 3] + 1];
+//            [ap - 1] = [[ap - 3] + 2];
+//        }
+//        ap_offset += 3;
+//    }
+//    for ty in func.signature.param_types.iter() {
+//        let info = get_info(sierra_program_registry, ty)
+//            .ok_or_else(|| Error::NoInfoForType(ty.clone()))?;
+//        let generic_ty = &info.long_id.generic_id;
+//        if let Some(offset) = builtin_offset.get(generic_ty) {
+//            let mut offset = *offset;
+//            if proof_mode {
+//                // Everything is off by 2 due to the proof mode header
+//                offset += 2;
+//            }
+//            casm_extend! {ctx,
+//                [ap + 0] = [fp - offset], ap++;
+//            }
+//            ap_offset += 1;
+//        } else if generic_ty == &SystemType::ID {
+//            casm_extend! {ctx,
+//                %{ memory[ap + 0] = segments.add() %}
+//                ap += 1;
+//            }
+//            ap_offset += 1;
+//        } else if generic_ty == &GasBuiltinType::ID {
+//            casm_extend! {ctx,
+//                [ap + 0] = initial_gas, ap++;
+//            }
+//            ap_offset += 1;
+//        } else if generic_ty == &SegmentArenaType::ID {
+//            let offset = -ap_offset + after_arrays_data_offset;
+//            casm_extend! {ctx,
+//                [ap + 0] = [ap + offset] + 3, ap++;
+//            }
+//            ap_offset += 1;
+//        } else {
+//            let ty_size = type_sizes[ty];
+//            let param_ap_offset_end = ap_offset + ty_size;
+//            expected_arguments_size += ty_size;
+//            while ap_offset < param_ap_offset_end {
+//                let Some((arg_index, arg)) = arg_iter.next() else {
+//                    break;
+//                };
+//                match arg {
+//                    FuncArg::Single(value) => {
+//                        casm_extend! {ctx,
+//                            [ap + 0] = (value.to_bigint()), ap++;
+//                        }
+//                        ap_offset += 1;
+//                    }
+//                    FuncArg::Array(values) => {
+//                        let offset = -ap_offset + array_args_data_iter.next().unwrap();
+//                        casm_extend! {ctx,
+//                            [ap + 0] = [ap + (offset)], ap++;
+//                            [ap + 0] = [ap - 1] + (values.len()), ap++;
+//                        }
+//                        ap_offset += 2;
+//                        if ap_offset > param_ap_offset_end {
+//                            return Err(Error::ArgumentUnaligned {
+//                                param_index,
+//                                arg_index,
+//                            });
+//                        }
+//                    }
+//                }
+//            }
+//            param_index += 1;
+//        };
+//    }
+//    let actual_args_size = args
+//        .iter()
+//        .map(|arg| match arg {
+//            FuncArg::Single(_) => 1,
+//            FuncArg::Array(_) => 2,
+//        })
+//        .sum::<i16>();
+//    if expected_arguments_size != actual_args_size {
+//        return Err(Error::ArgumentsSizeMismatch {
+//            expected: expected_arguments_size,
+//            actual: actual_args_size,
+//        });
+//    }
+//
+//    let before_final_call = ctx.current_code_offset;
+//    let final_call_size = 3;
+//    let offset = final_call_size
+//        + casm_program.debug_info.sierra_statement_info[func.entry_point.0].start_offset;
+//
+//    casm_extend! {ctx,
+//        call rel offset;
+//        ret;
+//    }
+//    assert_eq!(before_final_call + final_call_size, ctx.current_code_offset);
+//
+//    Ok((ctx.instructions, builtins))
+//}
 
 fn get_info<'a>(
     sierra_program_registry: &'a ProgramRegistry<CoreType, CoreLibfunc>,
@@ -1132,6 +1213,12 @@ impl<'a, TokenUsages: Fn(CostTokenType) -> usize, ApChangeVarValue: Fn() -> usiz
 
     fn ap_change_var_value(&self) -> usize {
         (self.ap_change_var_value)()
+    }
+    fn circuit_info(
+        &self,
+        _ty: &ConcreteTypeId,
+    ) -> &cairo_lang_sierra::extensions::circuit::CircuitInfo {
+        todo!()
     }
 }
 pub fn get_libfuncs_costs(
@@ -1239,6 +1326,9 @@ fn update_costs(costs: &mut Costs, c: &CostTokenType, v: i64) {
         CostTokenType::Step => costs.step = v,
         CostTokenType::Hole => costs.hole = v,
         CostTokenType::RangeCheck => costs.range_checks = v,
+        CostTokenType::RangeCheck96 => costs.range_checks96 = v,
+        CostTokenType::AddMod => costs.add_mod = v,
+        CostTokenType::MulMod => costs.mul_mod = v,
     }
 }
 

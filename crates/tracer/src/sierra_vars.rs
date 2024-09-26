@@ -1,4 +1,3 @@
-use byteorder::{ByteOrder, LittleEndian};
 use cairo_lang_casm::{
     ap_change::ApChange,
     cell_expression::{CellExpression, CellOperator},
@@ -6,7 +5,9 @@ use cairo_lang_casm::{
 };
 use cairo_lang_sierra::program::{GenStatement, Program};
 use cairo_lang_sierra_to_casm::compiler::{CairoProgramDebugInfo, StatementKindDebugInfo};
-use cairo_vm::{vm::trace::trace_entry::RelocatedTraceEntry, Felt252};
+use cairo_vm::vm::trace::trace_entry::RelocatedTraceEntry;
+use num_traits::cast::ToPrimitive;
+use starknet_types_core::felt::Felt as Felt252;
 use std::collections::HashMap;
 
 pub fn extract_sierra_vars_values(
@@ -176,13 +177,15 @@ pub fn get_value_from_cell_expression(
         CellExpression::DoubleDeref(cell_ref, offset) => {
             match get_cell_ref_value(memory, trace_entry, cell_ref, ap_change) {
                 Ok(cell_ref_value_felt) => {
-                    let cell_ref_value_bytes_le = cell_ref_value_felt.to_bytes_le();
-                    let cell_ref_value =
-                        LittleEndian::read_u128(&cell_ref_value_bytes_le[..]) as i128;
-                    let addr = cell_ref_value + offset.clone() as i128;
-                    let value = memory[addr as usize];
-                    if let Some(value) = value {
-                        Ok(value.to_hex_string())
+                    let cell_ref_value: Option<i128> = cell_ref_value_felt.to_i128();
+                    if let Some(cell_ref_value) = cell_ref_value {
+                        let addr = cell_ref_value + *offset as i128;
+                        let value = memory.get(addr as usize).cloned();
+                        if let Some(Some(value)) = value {
+                            Ok(value.to_string())
+                        } else {
+                            Err(GetCellRefValueError::MemoryAddressNotFound)
+                        }
                     } else {
                         Err(GetCellRefValueError::MemoryAddressNotFound)
                     }

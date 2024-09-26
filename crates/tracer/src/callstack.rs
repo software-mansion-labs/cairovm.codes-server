@@ -1,5 +1,4 @@
 use crate::sierra_to_cairo::SierraToCairoDebugInfo;
-use byteorder::{ByteOrder, LittleEndian};
 use cairo_lang_sierra::{
     extensions::core::{CoreLibfunc, CoreType},
     program::Function,
@@ -10,9 +9,10 @@ use cairo_lang_sierra_type_size::{get_type_size_map, TypeSizeMap};
 use cairo_vm::{
     types::instruction::{Instruction, Opcode},
     vm::trace::trace_entry::RelocatedTraceEntry,
-    Felt252,
 };
+use num_traits::ToPrimitive;
 use serde::Serialize;
+use starknet_types_core::felt::Felt as Felt252;
 use std::collections::HashMap;
 
 const MAX_TRACEBACK_ENTRIES: usize = 100;
@@ -209,9 +209,8 @@ pub fn get_memory_usize_value_at_index(
 ) -> Option<usize> {
     match memory.get(index) {
         Some(Some(value_felt)) => {
-            let value_bytes_le = value_felt.to_bytes_le();
-            let value = LittleEndian::read_u128(&value_bytes_le[..]) as usize;
-            Some(value)
+            let value = value_felt.to_usize();
+            value
         }
         _ => None,
     }
