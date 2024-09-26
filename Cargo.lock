@@ -2934,7 +2934,6 @@ name = "tracer"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "byteorder",
  "cairo-lang-casm",
  "cairo-lang-compiler",
  "cairo-lang-filesystem",
@@ -2949,9 +2948,10 @@ dependencies = [
  "cairo-vm",
  "itertools 0.12.1",
  "num-bigint",
+ "num-traits 0.2.19",
  "serde",
  "serde_json",
- "thiserror",
+ "starknet-types-core",
 ]
 
 [[package]]

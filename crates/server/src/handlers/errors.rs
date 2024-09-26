@@ -70,6 +70,11 @@ impl ResponseError {
             _ => ResponseError::new(vec![LogEntry::default()]),
         }
     }
+
+    //Converts std::io::error to ResponseError
+    pub(crate) fn get_error_from_io(error: std::io::Error) -> Self {
+        ResponseError::new(vec![LogEntry::new(LogType::Error, error.to_string())])
+    }
 }
 
 impl IntoResponse for ResponseError {

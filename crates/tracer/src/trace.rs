@@ -3,8 +3,6 @@ use crate::{
     sierra_to_cairo::{get_sierra_to_cairo_debug_info, SierraToCairoDebugInfo},
     sierra_vars::extract_sierra_vars_values,
 };
-
-use byteorder::{ByteOrder, LittleEndian};
 use cairo_lang_compiler::db::RootDatabase;
 use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
@@ -12,11 +10,12 @@ use cairo_vm::{
     types::instruction::{Instruction, Op1Addr},
     utils::PRIME_STR,
     vm::{decoding::decoder::decode_instruction, trace::trace_entry::RelocatedTraceEntry},
-    Felt252,
 };
 use num_bigint::BigUint;
+use num_traits::cast::ToPrimitive;
 use serde::{Serialize, Serializer};
 use serde_json::json;
+use starknet_types_core::felt::Felt as Felt252;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 
@@ -67,7 +66,7 @@ pub fn make_trace_data(
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
     sierra_program_with_debug: &SierraProgramWithDebug,
     compiler_db: &RootDatabase,
-) -> TracerData {
+) -> Result<TracerData, Error> {
     let sierra_to_cairo_debug_info =
         get_sierra_to_cairo_debug_info(&sierra_program_with_debug, &compiler_db);
 
@@ -95,8 +94,9 @@ pub fn make_trace_data(
 
         let (instruction_encoding_felt, _) =
             get_instruction_encoding(pc, &memory).expect("Failed to get instruction encoding");
-        let instruction_encoding_bytes_le = instruction_encoding_felt.to_bytes_le();
-        let instruction_encoding_u64 = LittleEndian::read_u64(&instruction_encoding_bytes_le[..]);
+        let instruction_encoding_u64 = instruction_encoding_felt
+            .to_u64()
+            .expect("Failed to convert felt to u64");
         let instruction =
             decode_instruction(instruction_encoding_u64).expect("Failed to decode instruction");
         pc_inst_map.insert(pc, instruction.clone());
@@ -135,7 +135,7 @@ pub fn make_trace_data(
         &sierra_program_with_debug,
     );
 
-    TracerData {
+    Ok(TracerData {
         pc_inst_map: pc_inst_serialized_map,
         trace,
         memory: memory_map,
@@ -143,7 +143,7 @@ pub fn make_trace_data(
         trace_entries_to_sierra_vars,
         callstack,
         sierra_to_cairo_debug_info,
-    }
+    })
 }
 
 // Returns the encoded instruction (the value at pc) and the immediate value (the value at

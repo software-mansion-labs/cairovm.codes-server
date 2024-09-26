@@ -87,14 +87,21 @@ pub async fn runner_handler(
 
     let casm_to_sierra_map = make_casm_to_sierra_map(&casm_program.debug_info, headers_len);
 
-    let tracer_data = make_trace_data(
+    let tracer_data = match make_trace_data(
         trace,
         memory,
         &casm_program.debug_info,
         &casm_to_sierra_map,
         &sierra_program_with_debug,
         &compiler_db,
-    );
+    ) {
+        Ok(result) => result,
+        Err(error) => {
+            dbg!(&error);
+            fs::remove_dir_all(&folder_path).expect("Failed to delete temporary folder");
+            return Err(ResponseError::get_error_from_io(error));
+        }
+    };
 
     let casm_formatted_instructions = instructions
         .iter()
