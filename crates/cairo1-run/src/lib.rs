@@ -104,7 +104,7 @@ use std::slice::Iter;
 use std::{collections::HashMap, io, path::Path};
 use thiserror::Error;
 
-pub const CAIRO_LANG_COMPILER_VERSION: &'static str = "2.8.0";
+pub const CAIRO_LANG_COMPILER_VERSION: &str = "2.8.0";
 
 // #[derive(Parser, Debug)]
 // #[clap(author, version, about, long_about = None)]
@@ -186,21 +186,6 @@ fn process_args(value: &str) -> Result<Vec<Arg>, String> {
     }
 
     Ok(args)
-}
-
-fn validate_layout(value: &str) -> Result<String, String> {
-    match value {
-        "plain"
-        | "small"
-        | "dex"
-        | "starknet"
-        | "starknet_with_keccak"
-        | "recursive_large_output"
-        | "all_cairo"
-        | "all_solidity"
-        | "dynamic" => Ok(value.to_string()),
-        _ => Err(format!("{value} is not a valid layout")),
-    }
 }
 
 #[derive(Debug, Error)]
@@ -296,7 +281,7 @@ pub enum RunOutput {
     Panic(String),
 }
 
-#[derive(Debug, Serialize, Clone)]
+#[derive(Default, Debug, Serialize, Clone)]
 pub struct Costs {
     /// A compile time known cost unit. This is a linear combination of the runtime tokens
     /// (`step`, `hole`, `range_check`).
@@ -324,24 +309,6 @@ pub struct Costs {
     pub mul_mod: i64,
 }
 
-impl Default for Costs {
-    fn default() -> Self {
-        Costs {
-            const_cost: 0,
-            step: 0,
-            hole: 0,
-            range_checks: 0,
-            range_checks96: 0,
-            pedersen: 0,
-            poseidon: 0,
-            bitwise: 0,
-            ec_op: 0,
-            add_mod: 0,
-            mul_mod: 0,
-        }
-    }
-}
-
 #[derive(Debug, Serialize)]
 pub struct ProgramCosts {
     function_costs: HashMap<String, Costs>,
@@ -362,33 +329,29 @@ pub struct RunResult {
     pub costs: ProgramCosts,
 }
 
-pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result<RunResult, Error> {
+pub fn run_program_at_path(filename: &Path, arguments_as_str: &str) -> Result<RunResult, Error> {
     let proof_mode = false;
-    let layout = "all_cairo";
     let trace_file: Option<PathBuf> = None;
     let air_public_input: Option<PathBuf> = None;
-    let print_output = true;
     let cairo_pie_output: Option<PathBuf> = None;
     let air_private_input: Option<PathBuf> = None;
     let memory_file: Option<PathBuf> = None;
 
     // configure diagnostics
     let mut program_diagnostics: Vec<String> = Vec::new();
-    let diagnostics_callback = |diagnostic: FormattedDiagnosticEntry| {
-        let severity = diagnostic.severity();
-        let message = diagnostic.message();
-        program_diagnostics.push(format!("{severity}: {message}"));
-    };
-    let diagnostics_reporter = DiagnosticsReporter::callback(diagnostics_callback).allow_warnings();
+    let diagnostics_reporter =
+        DiagnosticsReporter::callback(|diagnostic: FormattedDiagnosticEntry| {
+            program_diagnostics.push(format!(
+                "{}: {}",
+                diagnostic.severity(),
+                diagnostic.message()
+            ));
+        })
+        .allow_warnings();
 
     // extract program arguments
-    let program_args = match process_args(&arguments_as_str) {
-        Ok(result) => result,
-        Err(error) => {
-            dbg!(error);
-            return Err(Error::BadArgumentStringFormat);
-        }
-    };
+    let program_args =
+        process_args(arguments_as_str).map_err(|_| Error::BadArgumentStringFormat)?;
 
     let compiler_config = CompilerConfig {
         replace_ids: true,
@@ -398,10 +361,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     let mut db_builder = RootDatabase::builder();
     db_builder.detect_corelib();
-    db_builder.with_cfg(CfgSet::from_iter([
-        Cfg::name("test"),
-        Cfg::kv("target", "test"),
-    ]));
+    db_builder.with_cfg(CfgSet::from_iter([Cfg::kv("target", "test")]));
     db_builder.with_plugin_suite(test_plugin_suite());
     db_builder.with_plugin_suite(starknet_plugin_suite());
     let mut compiler_db = db_builder.build().unwrap();
@@ -409,29 +369,22 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     let main_crate_ids = setup_project(&mut compiler_db, filename).unwrap();
 
     let sierra_program_with_debug =
-        compile_prepared_db(&mut compiler_db, main_crate_ids.clone(), compiler_config)
+        compile_prepared_db(&compiler_db, main_crate_ids.clone(), compiler_config)
             .map_err(|_| Error::DiagnosticsError(program_diagnostics.clone()))?;
 
     let sierra_program = &sierra_program_with_debug.program;
 
     let metadata_config = Some(Default::default());
-
-    let gas_usage_check = metadata_config.is_some();
-    let metadata: Metadata = create_metadata(&sierra_program, metadata_config.clone())?;
+    let metadata: Metadata = create_metadata(sierra_program, metadata_config.clone())?;
     let sierra_program_registry: ProgramRegistry<CoreType, CoreLibfunc> =
-        ProgramRegistry::<CoreType, CoreLibfunc>::new(&sierra_program)?;
+        ProgramRegistry::<CoreType, CoreLibfunc>::new(sierra_program)?;
     let type_sizes =
-        get_type_size_map(&sierra_program, &sierra_program_registry).unwrap_or_default();
+        get_type_size_map(sierra_program, &sierra_program_registry).unwrap_or_default();
 
     let libfuncs_costs = get_libfuncs_costs(sierra_program, &sierra_program_registry, &metadata);
 
     let replacer = DebugReplacer { db: &compiler_db };
-    let contracts_info = get_contracts_info(&compiler_db, main_crate_ids.clone(), &replacer)
-        .map_err(|_| {
-            Error::Anyhow(anyhow::anyhow!(
-                "Error while getting contract information".to_string()
-            ))
-        })?;
+    let contracts_info = get_contracts_info(&compiler_db, main_crate_ids.clone(), &replacer)?;
 
     let sierra_casm_runner = SierraCasmRunner::new(
         sierra_program.clone(),
@@ -447,8 +400,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
 
     let casm_program = sierra_casm_runner.get_casm_program();
 
-    let main_func = find_function(&sierra_program, "::main")?;
-
+    let main_func = find_function(sierra_program, "::main")?;
     let initial_gas = 9999999999999_usize;
 
     // Modified entry code to be compatible with custom cairo1 Proof Mode.
@@ -468,11 +420,6 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     let libfunc_footer = create_code_footer();
 
     let proof_mode_header = if proof_mode {
-        println!("Compiling with proof mode and running ...");
-
-        // This information can be useful for the users using the prover.
-        println!("Builtins used: {:?}", builtins);
-
         // Prepare "canonical" proof mode instructions. These are usually added by the compiler in cairo 0
         let mut ctx = casm! {};
         casm_extend! {ctx,
@@ -493,18 +440,14 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
         libfunc_footer.iter()
     );
 
-    let mut instructions_vec: Vec<Instruction> = vec![];
-    instructions_vec.extend(proof_mode_header.clone());
-    instructions_vec.extend(entry_code.clone());
-    instructions_vec.extend(casm_program.instructions.clone());
-    instructions_vec.extend(libfunc_footer.clone());
-
+    let instructions_vec: Vec<Instruction> = proof_mode_header
+        .iter()
+        .chain(entry_code.iter())
+        .chain(casm_program.instructions.iter())
+        .chain(libfunc_footer.iter())
+        .cloned()
+        .collect();
     let headers_len = proof_mode_header.len() + entry_code.len();
-
-    let (processor_hints, program_hints) = build_hints_vec(instructions.clone());
-
-    let mut _hint_processor =
-        Cairo1HintProcessor::new(&processor_hints, RunResources::default(), false);
 
     let (hints_dict, string_to_hint) = build_hints_dict(instructions.clone());
 
@@ -517,8 +460,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     };
     let data: Vec<MaybeRelocatable> = instructions
         .flat_map(|inst| inst.assemble().encode())
-        .map(|x| Felt252::from(&x))
-        .map(MaybeRelocatable::from)
+        .map(|x| MaybeRelocatable::from(Felt252::from(&x)))
         .collect();
 
     let data_len = data.len();
@@ -573,8 +515,7 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     let mut output_string: Option<String> = None;
 
     // Fetch return type data
-    let return_type_id = main_func.signature.ret_types.last();
-    if let Some(return_type_id) = return_type_id {
+    if let Some(return_type_id) = main_func.signature.ret_types.last() {
         let return_type_size = type_sizes
             .get(return_type_id)
             .cloned()
@@ -753,10 +694,10 @@ pub fn run_program_at_path(filename: &PathBuf, arguments_as_str: &str) -> Result
     let mut variable_costs: HashMap<i64, Costs> = HashMap::new();
     for ((stm_idx, token_type), v) in metadata.gas_info.variable_values.iter() {
         let index: i64 = stm_idx.0.try_into().expect("This shouldn't fail.");
-        if !variable_costs.contains_key(&index) {
+        variable_costs.entry(index).or_insert_with(|| {
             let costs: Costs = Costs::default();
-            variable_costs.insert(index, costs);
-        }
+            costs
+        });
         let costs = variable_costs.get_mut(&index).unwrap();
         match token_type {
             CostTokenType::Const => {
@@ -930,35 +871,6 @@ fn additional_initialization(vm: &mut VirtualMachine, data_len: usize) -> Result
 //     }
 // }
 
-#[allow(clippy::type_complexity)]
-fn build_hints_vec<'b>(
-    instructions: impl Iterator<Item = &'b Instruction>,
-) -> (Vec<(usize, Vec<Hint>)>, HashMap<usize, Vec<HintParams>>) {
-    let mut hints: Vec<(usize, Vec<Hint>)> = Vec::new();
-    let mut program_hints: HashMap<usize, Vec<HintParams>> = HashMap::new();
-
-    let mut hint_offset = 0;
-
-    for instruction in instructions {
-        if !instruction.hints.is_empty() {
-            hints.push((hint_offset, instruction.hints.clone()));
-            program_hints.insert(
-                hint_offset,
-                vec![HintParams {
-                    code: hint_offset.to_string(),
-                    accessible_scopes: Vec::new(),
-                    flow_tracking_data: FlowTrackingData {
-                        ap_tracking: ApTracking::default(),
-                        reference_ids: HashMap::new(),
-                    },
-                }],
-            );
-        }
-        hint_offset += instruction.body.op_size();
-    }
-    (hints, program_hints)
-}
-
 /// Finds first function ending with `name_suffix`.
 fn find_function<'a>(
     sierra_program: &'a SierraProgram,
@@ -985,169 +897,6 @@ fn create_code_footer() -> Vec<Instruction> {
         ret;
     }
     .instructions
-}
-//
-///// Returns the instructions to add to the beginning of the code to successfully call the main
-///// function, as well as the builtins required to execute the program.
-//fn create_entry_code(
-//    sierra_program_registry: &ProgramRegistry<CoreType, CoreLibfunc>,
-//    casm_program: &CairoProgram,
-//    type_sizes: &UnorderedHashMap<ConcreteTypeId, i16>,
-//    func: &Function,
-//    initial_gas: usize,
-//    proof_mode: bool,
-//    args: &Vec<FuncArg>,
-//) -> Result<(Vec<Instruction>, Vec<BuiltinName>), Error> {
-//    let mut ctx = casm! {};
-//    // The builtins in the formatting expected by the runner.
-//    let (builtins, builtin_offset) = get_function_builtins(func);
-//    // Load all vecs to memory.
-//    // Load all array args content to memory.
-//    let mut array_args_data = vec![];
-//    let mut ap_offset: i16 = 0;
-//    for arg in args {
-//        let FuncArg::Array(values) = arg else {
-//            continue;
-//        };
-//        array_args_data.push(ap_offset);
-//        casm_extend! {ctx,
-//            %{ memory[ap + 0] = segments.add() %}
-//            ap += 1;
-//        }
-//        for (i, v) in values.iter().enumerate() {
-//            let arr_at = (i + 1) as i16;
-//            casm_extend! {ctx,
-//                [ap + 0] = (v.to_bigint());
-//                [ap + 0] = [[ap - arr_at] + (i as i16)], ap++;
-//            };
-//        }
-//        ap_offset += (1 + values.len()) as i16;
-//    }
-//    let mut array_args_data_iter = array_args_data.iter();
-//    let after_arrays_data_offset = ap_offset;
-//    let mut arg_iter = args.iter().enumerate();
-//    let mut param_index = 0;
-//    let mut expected_arguments_size = 0;
-//    if func.signature.param_types.iter().any(|ty| {
-//        get_info(sierra_program_registry, ty)
-//            .map(|x| x.long_id.generic_id == SegmentArenaType::ID)
-//            .unwrap_or_default()
-//    }) {
-//        casm_extend! {ctx,
-//            // SegmentArena segment.
-//            %{ memory[ap + 0] = segments.add() %}
-//            // Infos segment.
-//            %{ memory[ap + 1] = segments.add() %}
-//            ap += 2;
-//            [ap + 0] = 0, ap++;
-//            // Write Infos segment, n_constructed (0), and n_destructed (0) to the segment.
-//            [ap - 2] = [[ap - 3]];
-//            [ap - 1] = [[ap - 3] + 1];
-//            [ap - 1] = [[ap - 3] + 2];
-//        }
-//        ap_offset += 3;
-//    }
-//    for ty in func.signature.param_types.iter() {
-//        let info = get_info(sierra_program_registry, ty)
-//            .ok_or_else(|| Error::NoInfoForType(ty.clone()))?;
-//        let generic_ty = &info.long_id.generic_id;
-//        if let Some(offset) = builtin_offset.get(generic_ty) {
-//            let mut offset = *offset;
-//            if proof_mode {
-//                // Everything is off by 2 due to the proof mode header
-//                offset += 2;
-//            }
-//            casm_extend! {ctx,
-//                [ap + 0] = [fp - offset], ap++;
-//            }
-//            ap_offset += 1;
-//        } else if generic_ty == &SystemType::ID {
-//            casm_extend! {ctx,
-//                %{ memory[ap + 0] = segments.add() %}
-//                ap += 1;
-//            }
-//            ap_offset += 1;
-//        } else if generic_ty == &GasBuiltinType::ID {
-//            casm_extend! {ctx,
-//                [ap + 0] = initial_gas, ap++;
-//            }
-//            ap_offset += 1;
-//        } else if generic_ty == &SegmentArenaType::ID {
-//            let offset = -ap_offset + after_arrays_data_offset;
-//            casm_extend! {ctx,
-//                [ap + 0] = [ap + offset] + 3, ap++;
-//            }
-//            ap_offset += 1;
-//        } else {
-//            let ty_size = type_sizes[ty];
-//            let param_ap_offset_end = ap_offset + ty_size;
-//            expected_arguments_size += ty_size;
-//            while ap_offset < param_ap_offset_end {
-//                let Some((arg_index, arg)) = arg_iter.next() else {
-//                    break;
-//                };
-//                match arg {
-//                    FuncArg::Single(value) => {
-//                        casm_extend! {ctx,
-//                            [ap + 0] = (value.to_bigint()), ap++;
-//                        }
-//                        ap_offset += 1;
-//                    }
-//                    FuncArg::Array(values) => {
-//                        let offset = -ap_offset + array_args_data_iter.next().unwrap();
-//                        casm_extend! {ctx,
-//                            [ap + 0] = [ap + (offset)], ap++;
-//                            [ap + 0] = [ap - 1] + (values.len()), ap++;
-//                        }
-//                        ap_offset += 2;
-//                        if ap_offset > param_ap_offset_end {
-//                            return Err(Error::ArgumentUnaligned {
-//                                param_index,
-//                                arg_index,
-//                            });
-//                        }
-//                    }
-//                }
-//            }
-//            param_index += 1;
-//        };
-//    }
-//    let actual_args_size = args
-//        .iter()
-//        .map(|arg| match arg {
-//            FuncArg::Single(_) => 1,
-//            FuncArg::Array(_) => 2,
-//        })
-//        .sum::<i16>();
-//    if expected_arguments_size != actual_args_size {
-//        return Err(Error::ArgumentsSizeMismatch {
-//            expected: expected_arguments_size,
-//            actual: actual_args_size,
-//        });
-//    }
-//
-//    let before_final_call = ctx.current_code_offset;
-//    let final_call_size = 3;
-//    let offset = final_call_size
-//        + casm_program.debug_info.sierra_statement_info[func.entry_point.0].start_offset;
-//
-//    casm_extend! {ctx,
-//        call rel offset;
-//        ret;
-//    }
-//    assert_eq!(before_final_call + final_call_size, ctx.current_code_offset);
-//
-//    Ok((ctx.instructions, builtins))
-//}
-
-fn get_info<'a>(
-    sierra_program_registry: &'a ProgramRegistry<CoreType, CoreLibfunc>,
-    ty: &'a cairo_lang_sierra::ids::ConcreteTypeId,
-) -> Option<&'a cairo_lang_sierra::extensions::types::TypeInfo> {
-    sierra_program_registry
-        .get_type(ty)
-        .ok()
-        .map(|ctc| ctc.info())
 }
 
 /// Creates the metadata required for a Sierra program lowering to casm.
@@ -1259,7 +1008,7 @@ pub fn get_libfuncs_costs(
                     },
                 );
                 let costs = Costs::default();
-                if libfunc_costs.len() == 0 {
+                if libfunc_costs.is_empty() {
                     statements_costs.insert(
                         i.into_or_panic(),
                         vec![StatementCosts {
@@ -1332,60 +1081,6 @@ fn update_costs(costs: &mut Costs, c: &CostTokenType, v: i64) {
     }
 }
 
-fn get_function_builtins(
-    func: &Function,
-) -> (
-    Vec<BuiltinName>,
-    HashMap<cairo_lang_sierra::ids::GenericTypeId, i16>,
-) {
-    let entry_params = &func.signature.param_types;
-    let mut builtins = Vec::new();
-    let mut builtin_offset: HashMap<cairo_lang_sierra::ids::GenericTypeId, i16> = HashMap::new();
-    let mut current_offset = 3;
-    // Fetch builtins from the entry_params in the standard order
-    if entry_params
-        .iter()
-        .any(|ti| ti.debug_name == Some("Poseidon".into()))
-    {
-        builtins.push(BuiltinName::poseidon);
-        builtin_offset.insert(PoseidonType::ID, current_offset);
-        current_offset += 1;
-    }
-    if entry_params
-        .iter()
-        .any(|ti| ti.debug_name == Some("EcOp".into()))
-    {
-        builtins.push(BuiltinName::ec_op);
-        builtin_offset.insert(EcOpType::ID, current_offset);
-        current_offset += 1
-    }
-    if entry_params
-        .iter()
-        .any(|ti| ti.debug_name == Some("Bitwise".into()))
-    {
-        builtins.push(BuiltinName::bitwise);
-        builtin_offset.insert(BitwiseType::ID, current_offset);
-        current_offset += 1;
-    }
-    if entry_params
-        .iter()
-        .any(|ti| ti.debug_name == Some("RangeCheck".into()))
-    {
-        builtins.push(BuiltinName::range_check);
-        builtin_offset.insert(RangeCheckType::ID, current_offset);
-        current_offset += 1;
-    }
-    if entry_params
-        .iter()
-        .any(|ti| ti.debug_name == Some("Pedersen".into()))
-    {
-        builtins.push(BuiltinName::pedersen);
-        builtin_offset.insert(PedersenType::ID, current_offset);
-    }
-    builtins.reverse();
-    (builtins, builtin_offset)
-}
-
 fn serialize_output(vm: &VirtualMachine, return_values: &[MaybeRelocatable]) -> String {
     let mut output_string = String::new();
     let mut return_values_iter: Peekable<Iter<MaybeRelocatable>> = return_values.iter().peekable();
@@ -1433,187 +1128,3 @@ fn bytes_to_text(bytes: [u8; 32]) -> Result<String, std::str::Utf8Error> {
     text.retain(|c| c != '\0');
     Ok(text)
 }
-
-// #[cfg(test)]
-// mod tests {
-//     #![allow(clippy::too_many_arguments)]
-//     use super::*;
-//     use assert_matches::assert_matches;
-//     use rstest::rstest;
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/fibonacci.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/fibonacci.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_fibonacci_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "89");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/factorial.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/factorial.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_factorial_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "3628800");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/array_get.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/array_get.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_array_get_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "3");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/enum_flow.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/enum_flow.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_enum_flow_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "300");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/enum_match.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/enum_match.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_enum_match_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "10 3618502788666131213697322783095070105623107215331596699973092056135872020471");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/hello.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/hello.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_hello_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1 1234");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/ops.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/ops.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_ops_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "6");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/print.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/print.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_print_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res.is_empty());
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/recursion.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/recursion.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_recursion_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1154076154663935037074198317650845438095734251249125412074882362667803016453");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/sample.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/sample.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_sample_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "5050");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/poseidon.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/poseidon.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_poseidon_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1099385018355113290651252669115094675591288647745213771718157553170111442461");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/poseidon_pedersen.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/poseidon_pedersen.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_poseidon_pedersen_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1036257840396636296853154602823055519264738423488122322497453114874087006398");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/pedersen_example.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/pedersen_example.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_pedersen_example_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1089549915800264549621536909767699778745926517555586332772759280702396009108");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/simple.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/simple.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_simple_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/simple_struct.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/simple_struct.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_simple_struct_ok(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "100");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/dictionaries.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/dictionaries.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null"].as_slice())]
-//     fn test_run_dictionaries(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1024");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null", "--args", "0"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null", "--args", "0"].as_slice())]
-//     fn test_run_branching_0(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null", "--args", "17"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null", "--args", "96"].as_slice())]
-//     fn test_run_branching_not_0(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "0");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--layout", "all_cairo", "--proof_mode"].as_slice())]
-//     fn test_run_branching_no_args(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Err(Error::ArgumentsSizeMismatch { expected, actual }) if expected == 1 && actual == 0);
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--layout", "all_cairo","--args", "1 2 3"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/branching.cairo", "--layout", "all_cairo", "--proof_mode", "--args", "1 2 3"].as_slice())]
-//     fn test_run_branching_too_many_args(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Err(Error::ArgumentsSizeMismatch { expected, actual }) if expected == 1 && actual == 3);
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/array_input_sum.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null", "--args", "2 [1 2 3 4] 0 [9 8]"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/array_input_sum.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null", "--args", "2 [1 2 3 4] 0 [9 8]"].as_slice())]
-//     fn test_array_input_sum(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "12");
-//     }
-
-//     #[rstest]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/tensor.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--cairo_pie_output", "/dev/null", "--args", "[2 2] [1 2 3 4]"].as_slice())]
-//     #[case(["cairo1-run", "../cairo_programs/cairo-1-programs/with_input/tensor.cairo", "--print_output", "--trace_file", "/dev/null", "--memory_file", "/dev/null", "--layout", "all_cairo", "--proof_mode", "--air_public_input", "/dev/null", "--air_private_input", "/dev/null", "--args", "[2 2] [1 2 3 4]"].as_slice())]
-//     fn test_tensor(#[case] args: &[&str]) {
-//         let args = args.iter().cloned().map(String::from);
-//         assert_matches!(run(args), Ok(Some(res)) if res == "1");
-//     }
-// }
