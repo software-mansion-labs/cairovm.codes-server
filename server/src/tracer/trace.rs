@@ -1,24 +1,32 @@
-use crate::{
-    callstack::{get_callstack, CallstackEntry},
-    sierra_to_cairo::{get_sierra_to_cairo_debug_info, SierraToCairoDebugInfo},
-    sierra_vars::extract_sierra_vars_values,
-};
+// use crate::{
+//     callstack::{get_callstack, CallstackEntry},
+//     sierra_to_cairo::{get_sierra_to_cairo_debug_info, SierraToCairoDebugInfo},
+//     sierra_vars::extract_sierra_vars_values,
+// };
 use cairo_lang_compiler::db::RootDatabase;
 use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use cairo_vm::{
+    Felt252,
     types::instruction::{Instruction, Op1Addr},
     utils::PRIME_STR,
     vm::{decoding::decoder::decode_instruction, trace::trace_entry::RelocatedTraceEntry},
 };
 use num_bigint::BigUint;
-use num_traits::cast::ToPrimitive;
+// use num_traits::cast::ToPrimitive;
 use serde::{Serialize, Serializer};
 use serde_json::json;
-use starknet_types_core::felt::Felt as Felt252;
+// use starknet_types_core::felt::Felt as Felt252;
 use std::collections::HashMap;
 use std::io::{Error, ErrorKind};
 
+use super::{
+    callstack::{CallstackEntry, get_callstack},
+    sierra_to_cairo::{SierraToCairoDebugInfo, get_sierra_to_cairo_debug_info},
+    sierra_vars::extract_sierra_vars_values,
+};
+
+#[derive(Debug)]
 pub struct InstructionSerializable(Instruction);
 
 impl Serialize for InstructionSerializable {
@@ -48,7 +56,7 @@ impl Serialize for InstructionSerializable {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct TracerData {
     pub pc_inst_map: HashMap<usize, InstructionSerializable>,
     pub trace: Vec<RelocatedTraceEntry>,
@@ -94,8 +102,9 @@ pub fn make_trace_data(
 
         let (instruction_encoding_felt, _) =
             get_instruction_encoding(pc, &memory).expect("Failed to get instruction encoding");
+
         let instruction_encoding_u64 = instruction_encoding_felt
-            .to_u64()
+            .try_into()
             .expect("Failed to convert felt to u64");
         let instruction =
             decode_instruction(instruction_encoding_u64).expect("Failed to decode instruction");

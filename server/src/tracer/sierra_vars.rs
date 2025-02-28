@@ -5,9 +5,9 @@ use cairo_lang_casm::{
 };
 use cairo_lang_sierra::program::{GenStatement, Program};
 use cairo_lang_sierra_to_casm::compiler::{CairoProgramDebugInfo, StatementKindDebugInfo};
-use cairo_vm::vm::trace::trace_entry::RelocatedTraceEntry;
+use cairo_vm::{vm::trace::trace_entry::RelocatedTraceEntry, Felt252};
 use num_traits::cast::ToPrimitive;
-use starknet_types_core::felt::Felt as Felt252;
+// use starknet_types_core::felt::Felt as Felt252;
 use std::collections::HashMap;
 
 pub fn extract_sierra_vars_values(
@@ -124,7 +124,7 @@ pub fn get_values_from_cell_expressions(
             Err(e) => match e {
                 GetCellRefValueError::UnknownApChange => {}
                 _ => {
-                    dbg!(e);
+                    // dbg!(e);
                 }
             },
         }

@@ -63,6 +63,7 @@ pub fn get_sierra_to_cairo_debug_info(
                     compiler_db.upcast(),
                     file_id,
                     syntax_node_location_span,
+                    None,
                 );
                 let originating_file_name = originating_file_id.file_name(compiler_db.upcast());
                 if originating_file_name == "main.cairo" {
@@ -81,14 +82,11 @@ pub fn get_sierra_to_cairo_debug_info(
                 cairo_locations.push(cairo_location.unwrap());
             }
         }
-        sierra_statements_to_cairo_info.insert(
-            statement_idx.0,
-            SierraStatementToCairoDebugInfo {
-                fn_name: statements_functions_map.get(statement_idx).cloned(),
-                cairo_location: cairo_locations.first().cloned(),
-                cairo_locations,
-            },
-        );
+        sierra_statements_to_cairo_info.insert(statement_idx.0, SierraStatementToCairoDebugInfo {
+            fn_name: statements_functions_map.get(statement_idx).cloned(),
+            cairo_location: cairo_locations.first().cloned(),
+            cairo_locations,
+        });
     }
 
     SierraToCairoDebugInfo {

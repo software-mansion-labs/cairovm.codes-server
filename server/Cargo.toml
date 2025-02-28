@@ -1,0 +1,37 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+cairo-vm = { version = "1.0.1", features = ["mod_builtin"] }
+cairo-lang-compiler = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-executable = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-runner = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-utils = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-filesystem = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-sierra-generator = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-lowering = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-runnable-utils = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-sierra = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-sierra-to-casm = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-casm = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-sierra-type-size = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-diagnostics = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-starknet = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-test-plugin = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+cairo-lang-debug = { git = "https://github.com/starkware-libs/cairo", rev = "c539d077479654eee6323d9c0c6eafad82d4851a", default-features = false }
+anyhow = "1.0.95"
+bincode = { version = "2.0.0-rc.3" }
+itertools = "0.14.0"
+serde = "1.0.218"
+serde_json = "1.0.139"
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+axum = "0.8.1"
+thiserror = "2.0.11"
+tower-http = { version = "0.6.2", features = ["cors", "trace"] }
+tokio = { version = "1.43.0", features = ["full", "rt-multi-thread"] }
+tower = "0.5.2"
+uuid = { version = "1.14.0", features = ["v4"] }
+# prover = { git = "https://github.com/starkware-libs/stwo-cairo", branch = "main", package = "stwo_cairo_prover", default-features = false }

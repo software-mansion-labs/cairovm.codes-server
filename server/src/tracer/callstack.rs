@@ -1,4 +1,4 @@
-use crate::sierra_to_cairo::SierraToCairoDebugInfo;
+// use crate::sierra_to_cairo::SierraToCairoDebugInfo;
 use cairo_lang_sierra::{
     extensions::core::{CoreLibfunc, CoreType},
     program::Function,
@@ -8,12 +8,14 @@ use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_sierra_type_size::{get_type_size_map, TypeSizeMap};
 use cairo_vm::{
     types::instruction::{Instruction, Opcode},
-    vm::trace::trace_entry::RelocatedTraceEntry,
+    vm::trace::trace_entry::RelocatedTraceEntry, Felt252,
 };
 use num_traits::ToPrimitive;
 use serde::Serialize;
-use starknet_types_core::felt::Felt as Felt252;
+// use starknet_types_core::felt::Felt as Felt252;
 use std::collections::HashMap;
+
+use super::sierra_to_cairo::SierraToCairoDebugInfo;
 
 const MAX_TRACEBACK_ENTRIES: usize = 100;
 

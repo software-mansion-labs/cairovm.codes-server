@@ -3,3 +3,7 @@
 .env
 corelib
 *.cairo
+/prover/target
+/server/target
+prover
+prover-bin
