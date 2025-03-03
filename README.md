@@ -14,7 +14,7 @@ cairovm.codes is brought to you by [Walnut](https://www.walnut.dev).
 
 The app requires the following dependencies:
 
-- [Rust](https://www.rust-lang.org/) >= 1.75.0
+- [Rust](https://www.rust-lang.org/) = 1.85.0-nightly
 
 ## 👩‍💻 Local Development
 
@@ -30,7 +30,7 @@ Install the dependencies:
 
 Start up the app and see it running at http://localhost:3000/_ah/warmup
 
-    cargo run --bin server
+    make run-dev
 
 ## 🚀 Deploying
 
