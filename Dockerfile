@@ -6,7 +6,7 @@ RUN rustup default ${RUST_VERSION}
 WORKDIR /app
 COPY . .
 RUN make deps
-RUN cd prover && cargo build --locked --release --bin prover
+RUN cd prover && RUSTFLAGS="-C target-cpu=native -C opt-level=3" cargo build --locked --release --bin prover
 RUN cd server && cargo build --locked --release --bin server
 
 FROM public.ecr.aws/docker/library/rust:1.85.0 AS final

@@ -7,6 +7,6 @@ deps:
 	&& rm -rf cairo/
 
 run-dev:
-	cd prover && cargo build --release \
+	cd prover && RUSTFLAGS="-C target-cpu=native -C opt-level=3" cargo build --release \
 	&& cp target/release/prover ./../prover-bin \
 	&& export PROVER_PATH="../prover-bin" && cd .. && cd server && cargo run --release
