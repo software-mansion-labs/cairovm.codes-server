@@ -1,6 +1,9 @@
 use anyhow::{Result, anyhow};
 use prover::{
-    cairo_air::{ProverConfig, prove_cairo, verify_cairo},
+    cairo_air::{
+        prover::{ProverConfig, prove_cairo},
+        verifier::verify_cairo,
+    },
     stwo_prover::core::{pcs::PcsConfig, vcs::blake2_merkle::Blake2sMerkleChannel},
 };
 use std::{io::Write, path::Path, time::Instant};
