@@ -15,6 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/health", get(health_check))
         .route("/v1/run", post(runner_handler))
         .route("/v2/run", post(proxy_runner_handler))
+        .route("/v2/prove", post(proxy_prover_handler))
         .route("/_ah/warmup", get(|| async { "OK" }))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(CorsLayer::permissive());
@@ -37,6 +38,30 @@ async fn proxy_runner_handler(Json(payload): Json<serde_json::Value>) -> Respons
     let client = Client::new();
     let res = client
         .post("http://51.15.233.88:3000/v1/run")
+        .json(&payload)
+        .send()
+        .await;
+
+    match res {
+        Ok(response) => {
+            let status: StatusCode = match response.status() {
+                reqwest::StatusCode::OK => StatusCode::OK,
+                _ => StatusCode::INTERNAL_SERVER_ERROR,
+            };
+            let body = response
+                .text()
+                .await
+                .unwrap_or_else(|_| "Failed to read response".into());
+            (status, body).into_response()
+        }
+        Err(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Failed to proxy request").into_response(),
+    }
+}
+
+async fn proxy_prover_handler(Json(payload): Json<serde_json::Value>) -> Response {
+    let client = Client::new();
+    let res = client
+        .post("http://51.15.233.88:3000/v1/prove")
         .json(&payload)
         .send()
         .await;
