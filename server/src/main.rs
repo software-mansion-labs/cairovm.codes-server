@@ -1,7 +1,6 @@
 mod compilation;
 mod errors;
 mod executables_runner;
-mod prover;
 mod runner;
 mod runner_utils;
 mod tracer;
@@ -17,14 +16,10 @@ use axum::{
 };
 use cairo_lang_runner::Arg;
 use errors::{Error, LogEntry, ResponseError};
-use prover::prove_and_verify;
 use serde::{Deserialize, Serialize};
 use tower_http::cors::CorsLayer;
 use tracer::trace::TracerData;
-use utils::{
-    SierraFormattedProgram, create_named_folder, create_temp_folder, process_args,
-    write_binary_to_file, write_string_to_file,
-};
+use utils::{SierraFormattedProgram, process_args, write_to_temp_file};
 
 pub const CAIRO_LANG_COMPILER_VERSION: &str = "2.10.1";
 
@@ -34,15 +29,6 @@ pub struct RunnerPayload {
     pub program_arguments: Option<String>,
     pub proof_required: Option<bool>,
     pub verification_required: Option<bool>,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct ProverPayload {
-    pub air_public_input: String,
-    pub air_private_input: String,
-    pub trace: Vec<u8>,
-    pub memory: Vec<u8>,
-    pub folder_path: String,
 }
 
 #[derive(Serialize)]
@@ -57,28 +43,18 @@ pub struct RunnerResult {
     casm_to_sierra_map: HashMap<usize, Vec<usize>>,
     sierra_formatted_program: SierraFormattedProgram,
     logs: Vec<LogEntry>,
+    proof: Option<String>,
     compilation_time_ms: u64,
     execution_time_ms: u64,
+    proving_time_ms: Option<u64>,
+    verification_time_ms: Option<u64>,
     proving_is_not_supported: bool,
-    air_public_input: Option<String>,
-    air_private_input: Option<String>,
-    trace: Option<Vec<u8>>,
-    memory: Option<Vec<u8>>,
-    folder_path: String,
-}
-
-#[derive(Serialize)]
-pub struct ProverResult {
-    proof: String,
-    proving_time_ms: u64,
-    verification_time_ms: u64,
 }
 
 pub async fn runner_handler(
     Json(payload): Json<RunnerPayload>,
 ) -> Result<Json<RunnerResult>, ResponseError> {
-    let (project_path, folder_name) = create_temp_folder();
-    let file_path = write_string_to_file(&project_path, "main.cairo", &payload.cairo_program_code);
+    let (file_path, project_path) = write_to_temp_file(&payload.cairo_program_code);
     let user_args: Vec<Arg> = match payload.program_arguments {
         Some(args) => process_args(&args)
             .map_err(|err| ResponseError::get_error(Error::Anyhow(anyhow::anyhow!(err))))?,
@@ -110,7 +86,7 @@ pub async fn runner_handler(
         runner_path,
         user_args,
         payload.proof_required.unwrap_or(false),
-        folder_name,
+        payload.verification_required.unwrap_or(false),
     ) {
         Ok(result) => result,
         Err(e) => {
@@ -123,48 +99,11 @@ pub async fn runner_handler(
     Ok(Json(runner_result))
 }
 
-pub async fn prover_handler(
-    Json(payload): Json<ProverPayload>,
-) -> Result<Json<ProverResult>, ResponseError> {
-    let project_path = create_named_folder(&payload.folder_path);
-
-    write_string_to_file(
-        &project_path,
-        "air_public_input.txt",
-        &payload.air_public_input,
-    );
-
-    write_string_to_file(
-        &project_path,
-        "air_private_input.txt",
-        &payload.air_private_input,
-    );
-
-    write_binary_to_file(&project_path, "trace.bin", &payload.trace);
-
-    write_binary_to_file(&project_path, "memory.bin", &payload.memory);
-
-    let (proof, proving_time_ms, verification_time_ms) =
-        prove_and_verify(&project_path).map_err(|err| {
-            fs::remove_dir_all(&project_path).expect("Failed to delete temporary folder");
-            ResponseError::get_error(Error::Anyhow(err))
-        })?;
-
-    fs::remove_dir_all(&project_path).expect("Failed to delete temporary folder");
-
-    Ok(Json(ProverResult {
-        proof,
-        proving_time_ms,
-        verification_time_ms,
-    }))
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = Router::new()
         .route("/health", get(health_check))
         .route("/v1/run", post(runner_handler))
-        .route("/v1/prove", post(prover_handler))
         .route("/_ah/warmup", get(|| async { "OK" }))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .layer(CorsLayer::permissive());

@@ -7,36 +7,17 @@ use cairo_vm::Felt252;
 use serde::Serialize;
 use uuid::Uuid;
 
-pub fn create_temp_folder() -> (PathBuf, String) {
+pub fn write_to_temp_file(content: &str) -> (PathBuf, PathBuf) {
     let current_dir = env::current_dir().expect("Failed to get current directory");
     let uuid = Uuid::new_v4();
     let folder_name = uuid.to_string();
     let parent_dir = current_dir.join(&folder_name);
     if !parent_dir.exists() {
-        fs::create_dir_all(&parent_dir).expect("Failed to create new folder");
+        fs::create_dir_all(&parent_dir).expect("failed to create new folder");
     }
-    (parent_dir, folder_name)
-}
-
-pub fn create_named_folder(folder_name: &str) -> PathBuf {
-    let current_dir = env::current_dir().expect("Failed to get current directory");
-    let parent_dir = current_dir.join(folder_name);
-    if !parent_dir.exists() {
-        fs::create_dir_all(&parent_dir).expect("Failed to create new folder");
-    }
-    parent_dir
-}
-
-pub fn write_string_to_file(folder_path: &PathBuf, file_name: &str, content: &str) -> PathBuf {
-    let file_path = folder_path.join(file_name);
+    let file_path = parent_dir.join("main.cairo");
     fs::write(&file_path, content).expect("Failed to write to file");
-    file_path
-}
-
-pub fn write_binary_to_file(folder_path: &PathBuf, file_name: &str, content: &[u8]) -> PathBuf {
-    let file_path = folder_path.join(file_name);
-    fs::write(&file_path, content).expect("Failed to write binary to file");
-    file_path
+    (file_path, parent_dir)
 }
 
 pub fn process_args(value: &str) -> Result<Vec<Arg>, String> {
