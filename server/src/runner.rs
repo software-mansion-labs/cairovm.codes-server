@@ -1,65 +1,33 @@
 use anyhow::{Context, Result};
-use bincode::enc::write::Writer;
 use cairo_lang_compiler::{
     db::RootDatabase, diagnostics::DiagnosticsReporter, project::setup_project,
 };
 use cairo_lang_diagnostics::{FormattedDiagnosticEntry, ToOption};
-use cairo_lang_executable::{
-    compile::ExecutableConfig,
-    executable::{EntryPointKind, Executable},
-    plugin::executable_plugin_suite,
-};
 use cairo_lang_filesystem::cfg::{Cfg, CfgSet};
 use cairo_lang_runnable_utils::builder::{EntryCodeConfig, RunnableBuilder};
-use cairo_lang_runner::{
-    Arg, CairoHintProcessor, RunResult, RunnerError, SierraCasmRunner, StarknetState,
-    build_hints_dict,
-    casm_run::{self, RunFunctionResult, format_next_item},
-    initialize_vm,
-};
-use cairo_lang_sierra::program::{Function, Program as SierraProgram};
+use cairo_lang_runner::{Arg, SierraCasmRunner, StarknetState, casm_run::format_next_item};
 use cairo_lang_sierra_generator::replace_ids::{DebugReplacer, SierraIdReplacer};
 use cairo_lang_sierra_generator::{db::SierraGenGroup, program_generator::SierraProgramWithDebug};
-use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use cairo_lang_starknet::{
     contract::{find_contracts, get_contracts_info},
     starknet_plugin_suite,
 };
 use cairo_lang_test_plugin::test_plugin_suite;
 use cairo_lang_utils::Upcast;
-use cairo_vm::{
-    Felt252,
-    cairo_run::{self, CairoRunConfig},
-    hint_processor::hint_processor_definition::HintProcessor,
-    serde::deserialize_program::HintParams,
-    types::{builtin_name::BuiltinName, program::Program, relocatable::MaybeRelocatable},
-};
-use cairo_vm::{cairo_run::cairo_run_program, types::layout_name::LayoutName};
-use num_bigint::BigInt;
-use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    io::{self, Write},
-    path::{Path, PathBuf},
-    process::Command,
-    sync::Arc,
-    usize,
-};
+use std::{path::PathBuf, sync::Arc, usize};
 
 use crate::{
     CAIRO_LANG_COMPILER_VERSION, ResponseError, RunnerResult,
-    compilation::compile_executable_in_prepared_db,
-    errors::{Error, LogEntry, build_log_entry_from_diagnostics},
+    errors::{Error, build_log_entry_from_diagnostics},
     runner_utils::run_function_with_starknet_context,
-    tracer::trace::{TracerData, make_trace_data},
-    utils::{SierraFormattedProgram, format_sierra_program, make_casm_to_sierra_map},
+    tracer::trace::make_trace_data,
+    utils::{format_sierra_program, make_casm_to_sierra_map},
 };
 
 pub fn run(
     project_path: PathBuf,
     user_args: Vec<Arg>,
-    proof_required: bool,
-    _verification_required: bool,
+    _proof_required: bool,
 ) -> Result<RunnerResult, ResponseError> {
     println!("Starting a new simple run...");
 
@@ -111,7 +79,7 @@ pub fn run(
         db.get_sierra_program(main_crate_ids.clone())
             .to_option()
             .with_context(|| "Compilation failed without any diagnostics.")
-            .map_err(|err| {
+            .map_err(|_err| {
                 ResponseError::get_error(Error::DiagnosticsError(program_diagnostics))
             })?,
     );
@@ -150,14 +118,15 @@ pub fn run(
         cairo_lang_runner::RunResultValue::Success(values) => {
             // println!("Run completed successfully, returning {values:?}");
             serialized_output = Some(
-                values.into_iter()
-                      .map(|v| {
-                          // Convert each value to an integer (assuming the conversion is available)
-                          let int_val: u128 = v.try_into().unwrap();
-                          int_val.to_string()
-                      })
-                      .collect::<Vec<_>>()
-                      .join(", ")
+                values
+                    .into_iter()
+                    .map(|v| {
+                        // Convert each value to an integer (assuming the conversion is available)
+                        let int_val: u128 = v.try_into().unwrap();
+                        int_val.to_string()
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", "),
             );
         }
         cairo_lang_runner::RunResultValue::Panic(values) => {
@@ -227,32 +196,9 @@ pub fn run(
         casm_to_sierra_map,
         sierra_formatted_program,
         logs: build_log_entry_from_diagnostics(vec![]),
-        proof: None,
         compilation_time_ms: 0,
         execution_time_ms: 0,
-        proving_time_ms: None,
-        verification_time_ms: None,
-        proving_is_not_supported: proof_required,
+        proving_is_not_supported: true,
+        proof_required: false,
     })
-}
-
-/// Writer implementation for a file.
-struct FileWriter {
-    buf_writer: io::BufWriter<std::fs::File>,
-    bytes_written: usize,
-}
-
-impl Writer for FileWriter {
-    fn write(&mut self, bytes: &[u8]) -> Result<(), bincode::error::EncodeError> {
-        self.buf_writer
-            .write_all(bytes)
-            .map_err(|e| bincode::error::EncodeError::Io {
-                inner: e,
-                index: self.bytes_written,
-            })?;
-
-        self.bytes_written += bytes.len();
-
-        Ok(())
-    }
 }

@@ -7,17 +7,24 @@ use cairo_vm::Felt252;
 use serde::Serialize;
 use uuid::Uuid;
 
-pub fn write_to_temp_file(content: &str) -> (PathBuf, PathBuf) {
+/// Creates a temporary folder in the current directory with a unique name based on UUID.
+pub fn create_temp_folder() -> PathBuf {
     let current_dir = env::current_dir().expect("Failed to get current directory");
     let uuid = Uuid::new_v4();
     let folder_name = uuid.to_string();
-    let parent_dir = current_dir.join(&folder_name);
-    if !parent_dir.exists() {
-        fs::create_dir_all(&parent_dir).expect("failed to create new folder");
+    let folder_path = current_dir.join(&folder_name);
+    if !folder_path.exists() {
+        fs::create_dir_all(&folder_path).expect("failed to create folder");
     }
-    let file_path = parent_dir.join("main.cairo");
+    folder_path
+}
+
+/// Writes the given content into a file located in `folder` with name `file_name`.
+/// Returns the full path of the written file.
+pub fn write_to_file(folder: &PathBuf, file_name: &str, content: &str) -> PathBuf {
+    let file_path = folder.join(file_name);
     fs::write(&file_path, content).expect("Failed to write to file");
-    (file_path, parent_dir)
+    file_path
 }
 
 pub fn process_args(value: &str) -> Result<Vec<Arg>, String> {
@@ -85,7 +92,7 @@ pub fn make_casm_to_sierra_map(
     map
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SierraFormattedProgram {
     pub type_declarations: Vec<String>,
     pub libfunc_declarations: Vec<String>,

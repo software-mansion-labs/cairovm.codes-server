@@ -3,14 +3,14 @@ use cairo_lang_runner::{
     Arg, CairoHintProcessor, RunResult, RunResultStarknet, RunResultValue, RunnerError,
     SierraCasmRunner, StarknetState, build_hints_dict,
     casm_run::{self, RunFunctionResult},
-    initialize_vm, token_gas_cost,
+    initialize_vm,
 };
 use cairo_lang_sierra::{
     extensions::{NamedType, enm::EnumType, gas::GasBuiltinType},
     ids::{ConcreteTypeId, GenericTypeId},
     program::{Function, GenericArg},
 };
-use cairo_lang_utils::{casts::IntoOrPanic, extract_matches, require};
+use cairo_lang_utils::{casts::IntoOrPanic, extract_matches};
 use cairo_vm::{
     Felt252,
     hint_processor::hint_processor_definition::HintProcessor,
@@ -212,7 +212,7 @@ pub fn run_function_with_starknet_context(
 fn prepare_args(
     builder: &RunnableBuilder,
     func: &Function,
-    available_gas: Option<usize>,
+    _available_gas: Option<usize>,
     args: Vec<Arg>,
 ) -> Result<Vec<Vec<Arg>>, RunnerError> {
     let mut user_args = vec![];

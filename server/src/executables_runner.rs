@@ -11,10 +11,8 @@ use cairo_lang_executable::{
 };
 use cairo_lang_filesystem::cfg::{Cfg, CfgSet};
 use cairo_lang_runner::{Arg, CairoHintProcessor, build_hints_dict};
-use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_sierra_generator::program_generator::SierraProgramWithDebug;
 use cairo_lang_sierra_generator::replace_ids::SierraIdReplacer;
-use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use cairo_lang_starknet::starknet_plugin_suite;
 use cairo_lang_test_plugin::test_plugin_suite;
 use cairo_vm::{
@@ -23,27 +21,23 @@ use cairo_vm::{
     types::{program::Program, relocatable::MaybeRelocatable},
 };
 use cairo_vm::{cairo_run::cairo_run_program, types::layout_name::LayoutName};
-use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
     io::{self, Write},
-    path::{Path, PathBuf},
-    process::Command,
+    path::PathBuf,
 };
 
 use crate::{
     CAIRO_LANG_COMPILER_VERSION, ResponseError, RunnerResult,
     compilation::compile_executable_in_prepared_db,
-    errors::{Error, LogEntry, build_log_entry_from_diagnostics},
-    tracer::trace::{TracerData, make_trace_data},
-    utils::{SierraFormattedProgram, format_sierra_program, make_casm_to_sierra_map},
+    errors::{Error, build_log_entry_from_diagnostics},
+    tracer::trace::make_trace_data,
+    utils::{format_sierra_program, make_casm_to_sierra_map},
 };
 
 pub fn run(
     project_path: PathBuf,
     user_args: Vec<Arg>,
     proof_required: bool,
-    _verification_required: bool,
 ) -> Result<RunnerResult, ResponseError> {
     let mut program_diagnostics: Vec<String> = Vec::new();
     let diagnostics_reporter =
@@ -250,37 +244,16 @@ pub fn run(
     ) {
         Ok(result) => result,
         Err(error) => {
-            dbg!(&error);
-            // fs::remove_dir_all(&folder_path).expect("Failed to delete temporary folder");
             return Err(ResponseError::get_error(Error::Anyhow(
                 anyhow::Error::from(error),
             )));
         }
     };
 
-    // Measure proving time and generate a proof only if required.
-    let (proof, proving_time_ms, verification_time_ms) =
-        if proof_required && execution_panic_message.is_none() {
-            let (proof_content, proving_time, verification_time) = prove_and_verify(&project_path)
-                .map_err(|err| ResponseError::get_error(Error::Anyhow(err)))?;
-            (
-                Some(proof_content),
-                Some(proving_time),
-                Some(verification_time),
-            )
-        } else {
-            (None, None, None)
-        };
-
     let is_execution_successful = execution_panic_message.is_none();
 
     let compilation_time_ms = compilation_time.as_millis() as u64;
     let execution_time_ms = running_time.as_millis() as u64;
-
-    // println!("compilation_time_ms: {:?}", compilation_time_ms);
-    // println!("execution_time_ms: {:?}", execution_time_ms);
-    // println!("proving_time_ms: {:?}", proving_time_ms);
-    // println!("verification_time_ms: {:?}", verification_time_ms);
 
     Ok(RunnerResult {
         cairo_lang_compiler_version: CAIRO_LANG_COMPILER_VERSION.to_string(),
@@ -297,12 +270,10 @@ pub fn run(
         casm_to_sierra_map,
         sierra_formatted_program,
         logs: build_log_entry_from_diagnostics(program_diagnostics),
-        proof,
         compilation_time_ms,
         execution_time_ms,
-        proving_time_ms,
-        verification_time_ms,
         proving_is_not_supported: false,
+        proof_required,
     })
 }
 
@@ -343,41 +314,4 @@ impl FileWriter {
     fn flush(&mut self) -> io::Result<()> {
         self.buf_writer.flush()
     }
-}
-
-fn prove_and_verify(project_path: &Path) -> Result<(String, u64, u64)> {
-    let prover_path_str =
-        std::env::var("PROVER_PATH").with_context(|| "PROVER_PATH environment variable not set")?;
-    let prover_path = Path::new(&prover_path_str);
-    let output = Command::new(prover_path)
-        .arg(project_path)
-        .output()
-        .with_context(|| "Failed to run prover")?;
-
-    if !output.status.success() {
-        anyhow::bail!("Prover exited with status: {}", output.status);
-    }
-
-    // Read the proof.json file
-    let proof_path = project_path.join("proof.json");
-    let proof_content = std::fs::read_to_string(&proof_path)
-        .with_context(|| format!("Failed to read proof.json from {:?}", proof_path))?;
-
-    let stdout =
-        String::from_utf8(output.stdout).with_context(|| "Prover output was not valid UTF-8")?;
-
-    // Expect two comma separated integers: proving_time,verification_time.
-    let parts: Vec<&str> = stdout.trim().split(',').collect();
-    if parts.len() != 2 {
-        anyhow::bail!("Unexpected prover output: {}", stdout);
-    }
-
-    let proving_time: u64 = parts[0]
-        .parse()
-        .with_context(|| format!("Failed to parse proving time from '{}'", parts[0]))?;
-    let verification_time: u64 = parts[1]
-        .parse()
-        .with_context(|| format!("Failed to parse verification time from '{}'", parts[1]))?;
-
-    Ok((proof_content, proving_time, verification_time))
 }

@@ -28,10 +28,14 @@ serde = "1.0.218"
 serde_json = "1.0.139"
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
-axum = "0.8.1"
+axum = { version = "0.8.1", features = ["ws"] }
 thiserror = "2.0.11"
 tower-http = { version = "0.6.2", features = ["cors", "trace"] }
 tokio = { version = "1.43.0", features = ["full", "rt-multi-thread"] }
 tower = "0.5.2"
 uuid = { version = "1.14.0", features = ["v4"] }
-# prover = { git = "https://github.com/starkware-libs/stwo-cairo", branch = "main", package = "stwo_cairo_prover", default-features = false }
+axum-extra = { version = "0.10.0", features = ["typed-header"] }
+futures-util = { version = "0.3.31", default-features = false, features = [
+    "sink",
+    "std",
+] }
