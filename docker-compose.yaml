@@ -18,9 +18,7 @@ services:
       - ./docker-volumes/nginx/vhost:/etc/nginx/vhost.d
       - ./docker-volumes/nginx/html:/usr/share/nginx/html
       - ./docker-volumes/nginx/certs:/usr/certs/:ro
-      - /etc/letsencrypt/live/api.walnut.dev:/certs/live/api.walnut.dev:ro
-      - /etc/letsencrypt/live/api.cairovm.codes:/certs/live/api.cairovm.codes:ro
-      - /etc/letsencrypt/live/api.noir-libs.org:/certs/live/api.noir-libs.org:ro
+      - /etc/letsencrypt/live/api2.cairovm.codes:/certs/live/api2.cairovm.codes:ro
       - /etc/letsencrypt/archive:/certs/archive:ro
     networks:
       - app-network
