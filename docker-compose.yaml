@@ -1,45 +1,28 @@
-version: "3.8"
+networks:
+  app-network:
 
 services:
   app:
     build: .
     expose:
-      - "3000"
+      - 3000
     networks:
       - app-network
 
   nginx:
-    image: nginx:stable
+    restart: unless-stopped
+    image: nginx:latest
+    container_name: nginx
+    volumes:
+      - ./docker-volumes/nginx/conf:/etc/nginx/conf.d:rw
+      - ./docker-volumes/nginx/vhost:/etc/nginx/vhost.d
+      - ./docker-volumes/nginx/html:/usr/share/nginx/html
+      - ./docker-volumes/nginx/certs:/usr/certs/:ro
+      - /etc/letsencrypt/live/api.walnut.dev:/certs/live/api.walnut.dev:ro
+      - /etc/letsencrypt/live/api.cairovm.codes:/certs/live/api.cairovm.codes:ro
+      - /etc/letsencrypt/live/api.noir-libs.org:/certs/live/api.noir-libs.org:ro
+      - /etc/letsencrypt/archive:/certs/archive:ro
+    networks:
+      - app-network
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-      - cert_data:/etc/letsencrypt         # Shared volume for certificates
-      - webroot:/var/www/certbot             # Shared webroot for Certbot challenge
-    depends_on:
-      - app
-    networks:
-      - app-network
-
-  certbot:
-    image: certbot/certbot
-    volumes:
-      - cert_data:/etc/letsencrypt         # Shared volume for certificate data
-      - webroot:/var/www/certbot             # Webroot for challenge verification
-    # This entrypoint runs a loop that renews the certificates every 12 hours.
-    entrypoint: >
-      sh -c "trap exit TERM; while :; do
-             certbot renew;
-             sleep 12h & wait \$${!};
-             done"
-    networks:
-      - app-network
-
-volumes:
-  cert_data:
-  webroot:
-
-networks:
-  app-network:
-    driver: bridge
+      - 443:443
