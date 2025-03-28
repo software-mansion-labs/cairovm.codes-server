@@ -12,6 +12,7 @@ use std::fs;
 use std::net::SocketAddr;
 use std::ops::ControlFlow;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use axum::body::Bytes;
 use axum::extract::ws::{Message, WebSocket};
@@ -26,6 +27,8 @@ use errors::{Error, LogEntry, ResponseError};
 use futures_util::{SinkExt, StreamExt};
 use prover::prove_and_verify;
 use serde::{Deserialize, Serialize};
+use tokio::task::spawn_blocking;
+use tokio::time::timeout;
 use tower_http::cors::CorsLayer;
 use tracer::trace::TracerData;
 use utils::{SierraFormattedProgram, create_temp_folder, process_args, write_to_file};
@@ -170,11 +173,17 @@ async fn process_message_with_sender(
 
                     let proof_required = runner_payload.proof_required.unwrap_or(false);
 
-                    match runner_handler(temp_folder_path.clone(), runner_payload).await {
-                        Ok(runner_result) => {
-                            match serde_json::to_string(&ServerMessage::RunnerResult(runner_result))
-                            {
-                                Ok(result_json) => {
+                    match timeout(
+                        Duration::from_secs(30),
+                        runner_handler(temp_folder_path.clone(), runner_payload),
+                    )
+                    .await
+                    {
+                        Ok(inner_result) => match inner_result {
+                            Ok(runner_result) => {
+                                if let Ok(result_json) = serde_json::to_string(
+                                    &ServerMessage::RunnerResult(runner_result),
+                                ) {
                                     if sender
                                         .send(Message::Text(result_json.into()))
                                         .await
@@ -185,74 +194,95 @@ async fn process_message_with_sender(
                                         return ControlFlow::Break(());
                                     }
                                 }
-                                Err(_e) => {
-                                    fs::remove_dir_all(&temp_folder_path)
-                                        .expect("Failed to delete temporary folder");
-                                    return ControlFlow::Break(());
-                                }
-                            }
 
-                            if proof_required {
-                                match prove_and_verify(&temp_folder_path) {
-                                    Ok(prover_result) => {
-                                        match serde_json::to_string(&ServerMessage::ProverResult(
-                                            prover_result,
-                                        )) {
-                                            Ok(result_json) => {
-                                                if sender
-                                                    .send(Message::Text(result_json.into()))
-                                                    .await
-                                                    .is_err()
-                                                {
+                                if proof_required {
+                                    match timeout(
+                                        Duration::from_secs(30),
+                                        spawn_blocking({
+                                            let temp_folder_path_clone = temp_folder_path.clone();
+                                            move || prove_and_verify(&temp_folder_path_clone)
+                                        }),
+                                    )
+                                    .await
+                                    {
+                                        Ok(join_handle) => match join_handle {
+                                            Ok(prove_result) => match prove_result {
+                                                Ok(prover_result) => {
+                                                    if let Ok(result_json) = serde_json::to_string(
+                                                        &ServerMessage::ProverResult(prover_result),
+                                                    ) {
+                                                        if sender
+                                                            .send(Message::Text(result_json.into()))
+                                                            .await
+                                                            .is_err()
+                                                        {
+                                                            fs::remove_dir_all(&temp_folder_path)
+                                                                        .expect("Failed to delete temporary folder");
+                                                            return ControlFlow::Break(());
+                                                        }
+                                                    }
+                                                }
+                                                Err(e) => {
+                                                    let error_message =
+                                                        ServerMessage::ProverAndVerifierError(
+                                                            format!(
+                                                                "Failed to prove and verify: {:?}",
+                                                                e
+                                                            ),
+                                                        );
+                                                    if let Ok(error_json) =
+                                                        serde_json::to_string(&error_message)
+                                                    {
+                                                        let _ = sender
+                                                            .send(Message::Text(error_json.into()))
+                                                            .await;
+                                                    }
                                                     fs::remove_dir_all(&temp_folder_path).expect(
                                                         "Failed to delete temporary folder",
                                                     );
                                                     return ControlFlow::Break(());
                                                 }
-                                            }
-                                            Err(_e) => {
+                                            },
+                                            Err(e) => {
                                                 fs::remove_dir_all(&temp_folder_path)
                                                     .expect("Failed to delete temporary folder");
                                                 return ControlFlow::Break(());
                                             }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        match serde_json::to_string(
-                                            &ServerMessage::ProverAndVerifierError(format!(
-                                                "Failed to prove and verify: {:?}",
-                                                e
-                                            )),
-                                        ) {
-                                            Ok(error_json) => {
-                                                if sender
+                                        },
+                                        Err(_) => {
+                                            let timeout_error = ServerMessage::ProverAndVerifierError(
+                                                "Timeout: prove_and_verify took more than 30 seconds".to_string(),
+                                            );
+                                            if let Ok(error_json) =
+                                                serde_json::to_string(&timeout_error)
+                                            {
+                                                let _ = sender
                                                     .send(Message::Text(error_json.into()))
-                                                    .await
-                                                    .is_err()
-                                                {
-                                                    fs::remove_dir_all(&temp_folder_path).expect(
-                                                        "Failed to delete temporary folder",
-                                                    );
-                                                    return ControlFlow::Break(());
-                                                }
+                                                    .await;
                                             }
-                                            Err(_e) => {
-                                                fs::remove_dir_all(&temp_folder_path)
-                                                    .expect("Failed to delete temporary folder");
-                                                return ControlFlow::Break(());
-                                            }
+                                            fs::remove_dir_all(&temp_folder_path)
+                                                .expect("Failed to delete temporary folder");
+                                            return ControlFlow::Break(());
                                         }
-                                        fs::remove_dir_all(&temp_folder_path)
-                                            .expect("Failed to delete temporary folder");
-                                        return ControlFlow::Break(());
                                     }
                                 }
-                            }
 
-                            fs::remove_dir_all(&temp_folder_path)
-                                .expect("Failed to delete temporary folder");
-                        }
-                        Err(_e) => {
+                                fs::remove_dir_all(&temp_folder_path)
+                                    .expect("Failed to delete temporary folder");
+                            }
+                            Err(e) => {
+                                fs::remove_dir_all(&temp_folder_path)
+                                    .expect("Failed to delete temporary folder");
+                                return ControlFlow::Break(());
+                            }
+                        },
+                        Err(_) => {
+                            let timeout_error = ServerMessage::CompilerAndRunnerError(
+                                "Timeout: runner_handler took more than 30 seconds".to_string(),
+                            );
+                            if let Ok(error_json) = serde_json::to_string(&timeout_error) {
+                                let _ = sender.send(Message::Text(error_json.into())).await;
+                            }
                             fs::remove_dir_all(&temp_folder_path)
                                 .expect("Failed to delete temporary folder");
                             return ControlFlow::Break(());
