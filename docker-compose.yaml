@@ -18,7 +18,7 @@ services:
       - ./docker-volumes/nginx/vhost:/etc/nginx/vhost.d
       - ./docker-volumes/nginx/html:/usr/share/nginx/html
       - ./docker-volumes/nginx/certs:/usr/certs/:ro
-      - /etc/letsencrypt/live/api2.cairovm.codes:/certs/live/api2.cairovm.codes:ro
+      - /etc/letsencrypt/live/api2.cairovm.codes-0001:/certs/live/api2.cairovm.codes:ro
       - /etc/letsencrypt/archive:/certs/archive:ro
     networks:
       - app-network
