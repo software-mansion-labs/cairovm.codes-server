@@ -325,13 +325,13 @@ pub async fn runner_handler(
         ))));
     }
 
-    let run = if is_contract {
-        runner::run
-    } else {
+    let run = if is_executable {
         executables_runner::run
+    } else {
+        runner::run
     };
 
-    let runner_path = if is_contract {
+    let runner_path = if !is_executable {
         file_path.clone()
     } else {
         temp_folder_path.clone()
