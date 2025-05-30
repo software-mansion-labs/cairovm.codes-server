@@ -262,6 +262,7 @@ pub fn run(
         } else {
             Some(serialized_output)
         },
+        stdout_captured: None,
         execution_panic_message,
         is_compilation_successful: true,
         is_execution_successful,

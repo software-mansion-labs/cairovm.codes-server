@@ -47,6 +47,7 @@ pub struct RunnerPayload {
 pub struct RunnerResult {
     cairo_lang_compiler_version: String,
     serialized_output: Option<String>,
+    stdout_captured: Option<String>,
     execution_panic_message: Option<String>,
     is_compilation_successful: bool,
     is_execution_successful: bool,
@@ -148,7 +149,7 @@ async fn handle_socket(mut socket: WebSocket, who: SocketAddr) {
                     break;
                 }
             }
-            Err(e) => {
+            Err(_) => {
                 break;
             }
         }
@@ -243,7 +244,7 @@ async fn process_message_with_sender(
                                                     return ControlFlow::Break(());
                                                 }
                                             },
-                                            Err(e) => {
+                                            Err(_) => {
                                                 fs::remove_dir_all(&temp_folder_path)
                                                     .expect("Failed to delete temporary folder");
                                                 return ControlFlow::Break(());
@@ -270,7 +271,7 @@ async fn process_message_with_sender(
                                 fs::remove_dir_all(&temp_folder_path)
                                     .expect("Failed to delete temporary folder");
                             }
-                            Err(e) => {
+                            Err(_) => {
                                 fs::remove_dir_all(&temp_folder_path)
                                     .expect("Failed to delete temporary folder");
                                 return ControlFlow::Break(());

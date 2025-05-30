@@ -1,10 +1,15 @@
-use std::{collections::HashMap, env, fs, path::PathBuf};
-
 use cairo_lang_runner::Arg;
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_sierra_to_casm::compiler::CairoProgramDebugInfo;
 use cairo_vm::Felt252;
 use serde::Serialize;
+use std::{
+    collections::HashMap,
+    env, fs,
+    io::Read,
+    os::fd::{FromRawFd, RawFd},
+    path::PathBuf,
+};
 use uuid::Uuid;
 
 /// Creates a temporary folder in the current directory with a unique name based on UUID.
@@ -123,5 +128,30 @@ pub fn format_sierra_program(sierra_program: SierraProgram) -> SierraFormattedPr
             .iter()
             .map(|func| func.to_string())
             .collect(),
+    }
+}
+
+pub fn capture_stdout<F, R>(f: F) -> (R, String)
+where
+    F: FnOnce() -> R,
+{
+    unsafe {
+        let mut pipe_fds: [RawFd; 2] = [0; 2];
+        libc::pipe(pipe_fds.as_mut_ptr());
+
+        let stdout_fd = libc::dup(libc::STDOUT_FILENO);
+        libc::dup2(pipe_fds[1], libc::STDOUT_FILENO);
+        libc::close(pipe_fds[1]);
+
+        let result = f();
+
+        libc::dup2(stdout_fd, libc::STDOUT_FILENO);
+        libc::close(stdout_fd);
+
+        let mut output = String::new();
+        let mut reader = fs::File::from_raw_fd(pipe_fds[0]);
+        reader.read_to_string(&mut output).unwrap();
+
+        (result, output)
     }
 }

@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use cairo_lang_compiler::{
     db::RootDatabase, diagnostics::DiagnosticsReporter, project::setup_project,
 };
@@ -14,14 +14,18 @@ use cairo_lang_starknet::{
 };
 use cairo_lang_test_plugin::test_plugin_suite;
 use cairo_lang_utils::Upcast;
+use std::collections::HashMap;
 use std::{path::PathBuf, sync::Arc, usize};
 
 use crate::{
     CAIRO_LANG_COMPILER_VERSION, ResponseError, RunnerResult,
     errors::{Error, build_log_entry_from_diagnostics},
     runner_utils::run_function_with_starknet_context,
-    tracer::trace::make_trace_data,
-    utils::{format_sierra_program, make_casm_to_sierra_map},
+    tracer::{
+        sierra_to_cairo::SierraToCairoDebugInfo,
+        trace::{TracerData, make_trace_data},
+    },
+    utils::{SierraFormattedProgram, format_sierra_program, make_casm_to_sierra_map},
 };
 
 pub fn run(
@@ -75,21 +79,86 @@ pub fn run(
     let SierraProgramWithDebug {
         program: mut sierra_program,
         debug_info,
-    } = Arc::unwrap_or_clone(
-        db.get_sierra_program(main_crate_ids.clone())
-            .to_option()
-            .with_context(|| "Compilation failed without any diagnostics.")
-            .map_err(|_err| {
-                ResponseError::get_error(Error::DiagnosticsError(program_diagnostics))
-            })?,
-    );
+    } = match db.get_sierra_program(main_crate_ids.clone()).to_option() {
+        Some(program) => Arc::unwrap_or_clone(program),
+        None => {
+            return Ok(RunnerResult {
+                cairo_lang_compiler_version: CAIRO_LANG_COMPILER_VERSION.to_string(),
+                serialized_output: None,
+                stdout_captured: None,
+                execution_panic_message: None,
+                is_compilation_successful: false,
+                is_execution_successful: false,
+                tracer_data: TracerData {
+                    pc_inst_map: HashMap::new(),
+                    trace: vec![],
+                    memory: HashMap::new(),
+                    pc_to_inst_indexes_map: HashMap::new(),
+                    callstack: vec![],
+                    trace_entries_to_sierra_vars: vec![],
+                    sierra_to_cairo_debug_info: SierraToCairoDebugInfo {
+                        sierra_statements_to_cairo_info: HashMap::new(),
+                    },
+                },
+                casm_formatted_instructions: vec![],
+                casm_to_sierra_map: HashMap::new(),
+                sierra_formatted_program: SierraFormattedProgram {
+                    type_declarations: vec![],
+                    libfunc_declarations: vec![],
+                    statements: vec![],
+                    funcs: vec![],
+                },
+                logs: build_log_entry_from_diagnostics(program_diagnostics),
+                compilation_time_ms: 0,
+                execution_time_ms: 0,
+                proving_is_not_supported: true,
+                proof_required: false,
+            });
+        }
+    };
 
     let replacer = DebugReplacer { db };
     replacer.enrich_function_names(&mut sierra_program);
 
     let contracts = find_contracts((*db).upcast(), &main_crate_ids);
-    let contracts_info = get_contracts_info(db, contracts, &replacer)
-        .map_err(|err| ResponseError::get_error(Error::Anyhow(err)))?;
+    let contracts_info = match get_contracts_info(db, contracts, &replacer) {
+        Ok(info) => info,
+        Err(_) => {
+            return Ok(RunnerResult {
+                cairo_lang_compiler_version: CAIRO_LANG_COMPILER_VERSION.to_string(),
+                serialized_output: None,
+                stdout_captured: None,
+                execution_panic_message: None,
+                is_compilation_successful: false,
+                is_execution_successful: false,
+                tracer_data: TracerData {
+                    pc_inst_map: HashMap::new(),
+                    trace: vec![],
+                    memory: HashMap::new(),
+                    pc_to_inst_indexes_map: HashMap::new(),
+                    callstack: vec![],
+                    trace_entries_to_sierra_vars: vec![],
+                    sierra_to_cairo_debug_info: SierraToCairoDebugInfo {
+                        sierra_statements_to_cairo_info: HashMap::new(),
+                    },
+                },
+                casm_formatted_instructions: vec![],
+                casm_to_sierra_map: HashMap::new(),
+                sierra_formatted_program: SierraFormattedProgram {
+                    type_declarations: vec![],
+                    libfunc_declarations: vec![],
+                    statements: vec![],
+                    funcs: vec![],
+                },
+                logs: build_log_entry_from_diagnostics(program_diagnostics),
+                compilation_time_ms: 0,
+                execution_time_ms: 0,
+                proving_is_not_supported: true,
+                proof_required: false,
+            });
+        }
+    };
+
     let sierra_program = replacer.apply(&sierra_program);
 
     let runner = SierraCasmRunner::new(sierra_program.clone(), None, contracts_info, None)
@@ -101,7 +170,7 @@ pub fn run(
         .find_function("::main")
         .map_err(|err| ResponseError::get_error(Error::Runner(err)))?;
 
-    let (result, relocated_trace) = run_function_with_starknet_context(
+    let (result, relocated_trace, stdout_data) = run_function_with_starknet_context(
         &runner,
         &builder,
         func,
@@ -116,7 +185,6 @@ pub fn run(
 
     match result.value {
         cairo_lang_runner::RunResultValue::Success(values) => {
-            // println!("Run completed successfully, returning {values:?}");
             serialized_output = Some(
                 values
                     .into_iter()
@@ -131,7 +199,6 @@ pub fn run(
         }
         cairo_lang_runner::RunResultValue::Panic(values) => {
             let mut message: String = "Run panicked with [".to_string();
-            // print!("Run panicked with [");
             let mut felts = values.into_iter();
             let mut first = true;
             while let Some(item) = format_next_item(&mut felts) {
@@ -169,7 +236,6 @@ pub fn run(
         Ok(result) => result,
         Err(error) => {
             dbg!(&error);
-            // fs::remove_dir_all(&folder_path).expect("Failed to delete temporary folder");
             return Err(ResponseError::get_error(Error::Anyhow(
                 anyhow::Error::from(error),
             )));
@@ -188,6 +254,7 @@ pub fn run(
     Ok(RunnerResult {
         cairo_lang_compiler_version: CAIRO_LANG_COMPILER_VERSION.to_string(),
         serialized_output,
+        stdout_captured: Some(stdout_data),
         execution_panic_message: execution_panic_message.clone(),
         is_compilation_successful: true,
         is_execution_successful: execution_panic_message.is_none(),
@@ -195,7 +262,7 @@ pub fn run(
         casm_formatted_instructions,
         casm_to_sierra_map,
         sierra_formatted_program,
-        logs: build_log_entry_from_diagnostics(vec![]),
+        logs: build_log_entry_from_diagnostics(program_diagnostics),
         compilation_time_ms: 0,
         execution_time_ms: 0,
         proving_is_not_supported: true,

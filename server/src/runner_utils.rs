@@ -1,3 +1,4 @@
+use crate::utils::capture_stdout;
 use cairo_lang_runnable_utils::builder::{EntryCodeConfig, RunnableBuilder};
 use cairo_lang_runner::{
     Arg, CairoHintProcessor, RunResult, RunResultStarknet, RunResultValue, RunnerError,
@@ -31,24 +32,31 @@ pub fn run_function<'a, Bytecode>(
     hints_dict: HashMap<usize, Vec<HintParams>>,
     bytecode: Bytecode,
     builtins: Vec<BuiltinName>,
-) -> Result<(RunResult, Vec<RelocatedTraceEntry>), RunnerError>
+) -> Result<(RunResult, Vec<RelocatedTraceEntry>, String), RunnerError>
 where
     Bytecode: ExactSizeIterator<Item = &'a BigInt> + Clone,
 {
     let return_types = builder.generic_id_and_size_from_concrete(&func.signature.ret_types);
     let data_len = bytecode.len();
+
+    let (result, stdout) = capture_stdout(|| {
+        casm_run::run_function(
+            bytecode,
+            builtins,
+            |vm| initialize_vm(vm, data_len),
+            hint_processor,
+            hints_dict,
+        )
+    });
+    let result = result?;
+
     let RunFunctionResult {
         ap,
         mut used_resources,
         memory,
         relocated_trace,
-    } = casm_run::run_function(
-        bytecode,
-        builtins,
-        |vm| initialize_vm(vm, data_len),
-        hint_processor,
-        hints_dict,
-    )?;
+    } = result;
+
     let header_end = relocated_trace.last().unwrap().pc;
     used_resources.n_steps -= relocated_trace
         .iter()
@@ -91,6 +99,7 @@ where
             profiling_info,
         },
         relocated_trace,
+        stdout,
     ))
 }
 
@@ -161,7 +170,7 @@ pub fn run_function_with_starknet_context(
     args: Vec<Arg>,
     available_gas: Option<usize>,
     starknet_state: StarknetState,
-) -> Result<(RunResultStarknet, Vec<RelocatedTraceEntry>), RunnerError> {
+) -> Result<(RunResultStarknet, Vec<RelocatedTraceEntry>, String), RunnerError> {
     let (assembled_program, builtins) =
         builder.assemble_function_program(func, EntryCodeConfig::testing())?;
     let (hints_dict, string_to_hint) = build_hints_dict(&assembled_program.hints);
@@ -185,6 +194,7 @@ pub fn run_function_with_starknet_context(
             profiling_info,
         },
         relocated_trace,
+        stdout,
     ) = run_function(
         builder,
         func,
@@ -205,6 +215,7 @@ pub fn run_function_with_starknet_context(
             profiling_info,
         },
         relocated_trace,
+        stdout,
     ))
 }
 
