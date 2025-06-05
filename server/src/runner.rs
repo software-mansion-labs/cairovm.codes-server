@@ -5,7 +5,7 @@ use cairo_lang_compiler::{
 use cairo_lang_diagnostics::{FormattedDiagnosticEntry, ToOption};
 use cairo_lang_filesystem::cfg::{Cfg, CfgSet};
 use cairo_lang_runnable_utils::builder::{EntryCodeConfig, RunnableBuilder};
-use cairo_lang_runner::{Arg, SierraCasmRunner, StarknetState, casm_run::format_next_item};
+use cairo_lang_runner::{casm_run::format_next_item, Arg, SierraCasmRunner, StarknetState};
 use cairo_lang_sierra_generator::replace_ids::{DebugReplacer, SierraIdReplacer};
 use cairo_lang_sierra_generator::{db::SierraGenGroup, program_generator::SierraProgramWithDebug};
 use cairo_lang_starknet::{
@@ -18,14 +18,14 @@ use std::collections::HashMap;
 use std::{path::PathBuf, sync::Arc, usize};
 
 use crate::{
-    CAIRO_LANG_COMPILER_VERSION, ResponseError, RunnerResult,
-    errors::{Error, build_log_entry_from_diagnostics},
+    errors::{build_log_entry_from_diagnostics, Error},
     runner_utils::run_function_with_starknet_context,
     tracer::{
         sierra_to_cairo::SierraToCairoDebugInfo,
-        trace::{TracerData, make_trace_data},
+        trace::{make_trace_data, TracerData},
     },
-    utils::{SierraFormattedProgram, format_sierra_program, make_casm_to_sierra_map},
+    utils::{format_sierra_program, make_casm_to_sierra_map, SierraFormattedProgram},
+    ResponseError, RunnerResult, CAIRO_LANG_COMPILER_VERSION,
 };
 
 pub fn run(
@@ -168,7 +168,7 @@ pub fn run(
 
     let func = runner
         .find_function("::main")
-        .map_err(|err| ResponseError::get_error(Error::Runner(err)))?;
+        .map_err(|_| ResponseError::get_error(Error::MainNotFound))?;
 
     let (result, relocated_trace, stdout_data) = run_function_with_starknet_context(
         &runner,

@@ -20,8 +20,8 @@ use axum::extract::{ConnectInfo, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::any;
-use axum::{Router, routing::get};
-use axum_extra::{TypedHeader, headers};
+use axum::{routing::get, Router};
+use axum_extra::{headers, TypedHeader};
 use cairo_lang_runner::Arg;
 use errors::{Error, LogEntry, ResponseError};
 use futures_util::{SinkExt, StreamExt};
@@ -31,7 +31,7 @@ use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 use tower_http::cors::CorsLayer;
 use tracer::trace::TracerData;
-use utils::{SierraFormattedProgram, create_temp_folder, process_args, write_to_file};
+use utils::{create_temp_folder, process_args, write_to_file, SierraFormattedProgram};
 
 pub const CAIRO_LANG_COMPILER_VERSION: &str = "2.10.1";
 
@@ -218,7 +218,9 @@ async fn process_message_with_sender(
                                                             .is_err()
                                                         {
                                                             fs::remove_dir_all(&temp_folder_path)
-                                                                        .expect("Failed to delete temporary folder");
+                                                                .expect(
+                                                                "Failed to delete temporary folder",
+                                                            );
                                                             return ControlFlow::Break(());
                                                         }
                                                     }
@@ -271,7 +273,12 @@ async fn process_message_with_sender(
                                 fs::remove_dir_all(&temp_folder_path)
                                     .expect("Failed to delete temporary folder");
                             }
-                            Err(_) => {
+                            Err(e) => {
+                                let error_message =
+                                    ServerMessage::CompilerAndRunnerError(format!("{:?}", e));
+                                if let Ok(error_json) = serde_json::to_string(&error_message) {
+                                    let _ = sender.send(Message::Text(error_json.into())).await;
+                                }
                                 fs::remove_dir_all(&temp_folder_path)
                                     .expect("Failed to delete temporary folder");
                                 return ControlFlow::Break(());

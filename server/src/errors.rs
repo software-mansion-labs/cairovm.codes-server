@@ -1,6 +1,6 @@
-use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
+use axum::Json;
 use cairo_lang_compiler::project::ProjectError;
 use cairo_lang_runner::RunnerError;
 use cairo_vm::air_public_input::PublicInputError;
@@ -31,6 +31,8 @@ pub enum Error {
     PublicInput(#[from] PublicInputError),
     #[error(transparent)]
     Runner(#[from] RunnerError),
+    #[error("main function not found")]
+    MainNotFound,
     #[error(transparent)]
     ProjectError(#[from] ProjectError),
     // #[error(transparent)]
@@ -137,9 +139,12 @@ impl ResponseError {
                 )],
                 false,
             ),
-            Error::CairoRunError(error) => ResponseError::new(
+            Error::CairoRunError(error) => {
+                ResponseError::new(vec![LogEntry::new(LogType::Error, error.to_string())], true)
+            }
+            Error::MainNotFound => ResponseError::new(
                 vec![LogEntry::new(LogType::Error, error.to_string())],
-                true,
+                false,
             ),
             _ => ResponseError::new(vec![LogEntry::default()], false),
         }
@@ -147,7 +152,10 @@ impl ResponseError {
 
     //Converts std::io::error to ResponseError
     pub(crate) fn get_error_from_io(error: std::io::Error) -> Self {
-        ResponseError::new(vec![LogEntry::new(LogType::Error, error.to_string())], false)
+        ResponseError::new(
+            vec![LogEntry::new(LogType::Error, error.to_string())],
+            false,
+        )
     }
 }
 
