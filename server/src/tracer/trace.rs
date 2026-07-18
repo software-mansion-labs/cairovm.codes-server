@@ -76,7 +76,7 @@ pub fn make_trace_data(
     compiler_db: &RootDatabase,
 ) -> Result<TracerData, Error> {
     let sierra_to_cairo_debug_info =
-        get_sierra_to_cairo_debug_info(&sierra_program_with_debug, &compiler_db);
+        get_sierra_to_cairo_debug_info(sierra_program_with_debug, compiler_db);
 
     let mut pc_inst_map: HashMap<usize, Instruction> = HashMap::new();
     let mut pc_inst_serialized_map: HashMap<usize, InstructionSerializable> = HashMap::new();
@@ -108,7 +108,7 @@ pub fn make_trace_data(
             .expect("Failed to convert felt to u64");
         let instruction =
             decode_instruction(instruction_encoding_u64).expect("Failed to decode instruction");
-        pc_inst_map.insert(pc, instruction.clone());
+        pc_inst_map.insert(pc, instruction);
         if instruction.op1_addr == Op1Addr::Imm {
             skip_next_pc = true;
         }
@@ -119,7 +119,7 @@ pub fn make_trace_data(
 
     let memory_map = memory
         .iter()
-        .filter_map(|x| x.as_ref().map(|_| x.clone().unwrap()))
+        .filter_map(|x| x.as_ref().map(|_| (*x).unwrap()))
         .map(|x| x.to_hex_string())
         .enumerate()
         .map(|(i, v)| (i + 1, v))
@@ -129,8 +129,8 @@ pub fn make_trace_data(
         &trace,
         &memory,
         &pc_to_inst_indexes_map,
-        &casm_to_sierra_map,
-        &casm_program_debug_info,
+        casm_to_sierra_map,
+        casm_program_debug_info,
         &sierra_program_with_debug.program,
     );
 
@@ -139,9 +139,9 @@ pub fn make_trace_data(
         &memory,
         &pc_inst_map,
         &pc_to_inst_indexes_map,
-        &casm_to_sierra_map,
+        casm_to_sierra_map,
         &sierra_to_cairo_debug_info,
-        &sierra_program_with_debug,
+        sierra_program_with_debug,
     );
 
     Ok(TracerData {
@@ -164,12 +164,12 @@ pub fn get_instruction_encoding(
     if memory[pc].is_none() {
         return Err(Error::new(ErrorKind::Other, ""));
     }
-    let instruction_encoding = memory[pc].clone().unwrap();
+    let instruction_encoding = memory[pc].unwrap();
     let prime = BigUint::parse_bytes(PRIME_STR[2..].as_bytes(), 16).unwrap();
 
     let imm_addr = BigUint::from(pc + 1) % prime;
     let imm_addr =
         usize::try_from(imm_addr.clone()).map_err(|_| Error::new(ErrorKind::Other, ""))?;
-    let optional_imm = memory[imm_addr].clone();
+    let optional_imm = memory[imm_addr];
     Ok((instruction_encoding, optional_imm))
 }

@@ -1,6 +1,6 @@
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use cairo_lang_compiler::project::ProjectError;
 use cairo_lang_runner::RunnerError;
 use cairo_vm::air_public_input::PublicInputError;
@@ -15,6 +15,9 @@ use thiserror::Error;
 
 use crate::CAIRO_LANG_COMPILER_VERSION;
 
+// Mirrors the error space of the upstream cairo1-run crate; some variants are
+// kept for completeness even though they are not constructed at the moment.
+#[allow(dead_code, clippy::enum_variant_names)]
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("Failed to extract arguments from the provided string")]
@@ -148,14 +151,6 @@ impl ResponseError {
             ),
             _ => ResponseError::new(vec![LogEntry::default()], false),
         }
-    }
-
-    //Converts std::io::error to ResponseError
-    pub(crate) fn get_error_from_io(error: std::io::Error) -> Self {
-        ResponseError::new(
-            vec![LogEntry::new(LogType::Error, error.to_string())],
-            false,
-        )
     }
 }
 

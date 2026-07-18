@@ -45,6 +45,10 @@ pub fn main() -> Result<()> {
     let verify_result = verify_cairo::<Blake2sMerkleChannel>(proof, PcsConfig::default());
     let verifying_duration = verifying_start.elapsed();
 
+    // Fail with a non-zero exit code if the proof does not verify, so the
+    // server reports the error instead of silently returning an invalid proof.
+    verify_result.map_err(|e| anyhow!("Proof verification failed: {e:?}"))?;
+
     println!(
         "{},{}",
         proving_duration.as_millis(),

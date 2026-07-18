@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: Format & Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Installs the toolchains pinned in server/ and prover/ rust-toolchain.toml,
+      # including the rustfmt and clippy components declared there.
+      - name: Install Rust toolchains
+        run: |
+          cd server && (rustup show active-toolchain || rustup toolchain install)
+          cd ../prover && (rustup show active-toolchain || rustup toolchain install)
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            server
+            prover
+
+      - name: Check formatting
+        run: make fmt-check
+
+      - name: Clippy (deny warnings)
+        run: make clippy
+
+  check:
+    name: Cargo check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchains
+        run: |
+          cd server && (rustup show active-toolchain || rustup toolchain install)
+          cd ../prover && (rustup show active-toolchain || rustup toolchain install)
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            server
+            prover
+
+      - name: Type-check crates
+        run: make check

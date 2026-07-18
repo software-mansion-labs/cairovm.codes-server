@@ -70,7 +70,7 @@ where
         .unwrap()
         - 1;
 
-    let (results_data, gas_counter) = get_results_data(&builder, &return_types, &memory, ap);
+    let (results_data, gas_counter) = get_results_data(builder, &return_types, &memory, ap);
     assert!(results_data.len() <= 1);
 
     let value = if results_data.is_empty() {
@@ -79,7 +79,7 @@ where
     } else {
         let (ty, values) = results_data[0].clone();
         let inner_ty =
-            inner_type_from_panic_wrapper(&builder, &ty, func).map(|it| builder.type_size(&it));
+            inner_type_from_panic_wrapper(builder, &ty, func).map(|it| builder.type_size(&it));
         SierraCasmRunner::handle_main_return_value(inner_ty, values, &memory)
     };
 
@@ -282,8 +282,8 @@ fn requires_gas_builtin(builder: &RunnableBuilder, func: &Function) -> bool {
         .any(|ty| builder.type_long_id(ty).generic_id == GasBuiltinType::ID)
 }
 
-/// Returns the initial value for the gas counter.
-/// If `available_gas` is None returns 0.
+// Returns the initial value for the gas counter.
+// If `available_gas` is None returns 0.
 // pub fn get_initial_available_gas(
 //     builder: &RunnableBuilder,
 //     func: &Function,

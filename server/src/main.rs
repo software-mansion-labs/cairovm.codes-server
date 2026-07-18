@@ -20,8 +20,8 @@ use axum::extract::{ConnectInfo, WebSocketUpgrade};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::routing::any;
-use axum::{routing::get, Router};
-use axum_extra::{headers, TypedHeader};
+use axum::{Router, routing::get};
+use axum_extra::{TypedHeader, headers};
 use cairo_lang_runner::Arg;
 use errors::{Error, LogEntry, ResponseError};
 use futures_util::{SinkExt, StreamExt};
@@ -31,7 +31,7 @@ use tokio::task::spawn_blocking;
 use tokio::time::timeout;
 use tower_http::cors::CorsLayer;
 use tracer::trace::TracerData;
-use utils::{create_temp_folder, process_args, write_to_file, SierraFormattedProgram};
+use utils::{SierraFormattedProgram, create_temp_folder, process_args, write_to_file};
 
 pub const CAIRO_LANG_COMPILER_VERSION: &str = "2.10.1";
 
@@ -98,7 +98,7 @@ pub struct ProverResult {
 
 #[derive(Serialize)]
 pub enum ServerMessage {
-    RunnerResult(RunnerResult),
+    RunnerResult(Box<RunnerResult>),
     ProverResult(ProverResult),
     CompilerAndRunnerError(String),
     ProverAndVerifierError(String),
@@ -111,15 +111,9 @@ pub enum ServerMessage {
 /// as well as things from HTTP headers such as user-agent of the browser etc.
 async fn ws_handler(
     ws: WebSocketUpgrade,
-    user_agent: Option<TypedHeader<headers::UserAgent>>,
+    _user_agent: Option<TypedHeader<headers::UserAgent>>,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> impl IntoResponse {
-    let user_agent = if let Some(TypedHeader(user_agent)) = user_agent {
-        user_agent.to_string()
-    } else {
-        String::from("Unknown browser")
-    };
-
     // finalize the upgrade process by returning upgrade callback.
     // we can customize the callback by sending additional info such as address.
     ws.on_upgrade(move |socket| handle_socket(socket, addr))
@@ -162,7 +156,7 @@ async fn handle_socket(mut socket: WebSocket, who: SocketAddr) {
 /// back to the client as a JSON string.
 async fn process_message_with_sender(
     msg: Message,
-    who: SocketAddr,
+    _who: SocketAddr,
     sender: &mut (impl SinkExt<Message> + Unpin),
 ) -> ControlFlow<(), ()> {
     match msg {
@@ -183,7 +177,7 @@ async fn process_message_with_sender(
                         Ok(inner_result) => match inner_result {
                             Ok(runner_result) => {
                                 if let Ok(result_json) = serde_json::to_string(
-                                    &ServerMessage::RunnerResult(runner_result),
+                                    &ServerMessage::RunnerResult(Box::new(runner_result)),
                                 ) {
                                     if sender
                                         .send(Message::Text(result_json.into()))

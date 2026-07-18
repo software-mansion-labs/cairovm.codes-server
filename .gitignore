@@ -7,3 +7,7 @@ corelib
 /server/target
 prover
 prover-bin
+# runtime data mounted by docker-compose; only nginx conf is tracked
+docker-volumes/nginx/certs/
+docker-volumes/nginx/vhost/
+docker-volumes/nginx/html/

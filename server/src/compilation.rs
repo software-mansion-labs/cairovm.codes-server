@@ -5,7 +5,7 @@ use cairo_lang_compiler::{db::RootDatabase, diagnostics::DiagnosticsReporter};
 use cairo_lang_debug::debug::DebugWithDb;
 use cairo_lang_executable::{
     compile::{CompiledFunction, ExecutableConfig, find_executable_functions},
-    plugin::{EXECUTABLE_PREFIX, EXECUTABLE_RAW_ATTR},
+    plugin::EXECUTABLE_PREFIX,
 };
 use cairo_lang_filesystem::ids::CrateId;
 use cairo_lang_lowering::ids::ConcreteFunctionWithBodyId;
@@ -13,7 +13,6 @@ use cairo_lang_runnable_utils::builder::{EntryCodeConfig, RunnableBuilder};
 use cairo_lang_sierra::program::Program as SierraProgram;
 use cairo_lang_sierra_generator::{
     db::SierraGenGroup,
-    executables::find_executable_function_ids,
     program_generator::{SierraProgramDebugInfo, SierraProgramWithDebug},
 };
 use cairo_lang_utils::Intern;

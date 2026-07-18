@@ -1,2 +1,4 @@
 [toolchain]
+# Keep in sync with RUST_VERSION in the Dockerfile.
 channel = "nightly-2025-01-02"
+components = ["rustfmt", "clippy"]
