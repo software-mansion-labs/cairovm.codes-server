@@ -5,7 +5,7 @@ corelib
 *.cairo
 /prover/target
 /server/target
-prover
+# the compiled prover binary, not the tracked prover/ crate
 prover-bin
 # runtime data mounted by docker-compose; only nginx conf is tracked
 docker-volumes/nginx/certs/

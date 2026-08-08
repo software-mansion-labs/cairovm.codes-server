@@ -1,0 +1,27 @@
+# gitleaks config. CI scans the checked-out tree so a key can't be added back
+# in a pull request.
+
+[extend]
+# Start from the built-in rule set and only add exclusions below.
+useDefault = true
+
+[allowlist]
+description = "Paths that are build output or local-only, never committed"
+paths = [
+    # Build output. Compiled dependencies embed test keys and certificates.
+    '''^target/''',
+    '''^server/target/''',
+    '''^prover/target/''',
+    # Vendored Cairo corelib and the compiled prover binary. Gitignored, but
+    # developers run gitleaks on their working tree where both are present.
+    '''^corelib/''',
+    '''^prover-bin/''',
+    # TLS material mounted into the nginx container at runtime. Gitignored;
+    # only docker-volumes/nginx/conf is tracked.
+    '''^docker-volumes/nginx/certs/''',
+    # Local environment file. Gitignored, but developers run gitleaks on their
+    # working tree and it holds real values by design.
+    '''^\.env$''',
+    # Dependency lockfiles. Registry checksums trip the generic entropy rules.
+    '''Cargo\.lock$''',
+]
