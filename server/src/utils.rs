@@ -8,7 +8,7 @@ use std::{
     env, fs,
     io::Read,
     os::fd::{FromRawFd, RawFd},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 use uuid::Uuid;
 
@@ -26,7 +26,7 @@ pub fn create_temp_folder() -> PathBuf {
 
 /// Writes the given content into a file located in `folder` with name `file_name`.
 /// Returns the full path of the written file.
-pub fn write_to_file(folder: &PathBuf, file_name: &str, content: &str) -> PathBuf {
+pub fn write_to_file(folder: &Path, file_name: &str, content: &str) -> PathBuf {
     let file_path = folder.join(file_name);
     fs::write(&file_path, content).expect("Failed to write to file");
     file_path
@@ -92,7 +92,7 @@ pub fn make_casm_to_sierra_map(
         .take(sierra_statement_info_len - 1)
     {
         let key = sierra_info.instruction_idx + casm_headers_len;
-        map.entry(key).or_insert_with(Vec::new).push(i);
+        map.entry(key).or_default().push(i);
     }
     map
 }
@@ -121,7 +121,7 @@ pub fn format_sierra_program(sierra_program: SierraProgram) -> SierraFormattedPr
             .statements
             .iter()
             .enumerate()
-            .map(|(index, statement)| format!("{} // {}", statement.to_string(), index))
+            .map(|(index, statement)| format!("{} // {}", statement, index))
             .collect(),
         funcs: sierra_program
             .funcs
