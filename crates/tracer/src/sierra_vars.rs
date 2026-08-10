@@ -11,8 +11,8 @@ use starknet_types_core::felt::Felt as Felt252;
 use std::collections::HashMap;
 
 pub fn extract_sierra_vars_values(
-    trace: &Vec<RelocatedTraceEntry>,
-    memory: &Vec<Option<Felt252>>,
+    trace: &[RelocatedTraceEntry],
+    memory: &[Option<Felt252>],
     pc_to_inst_indexes_map: &HashMap<usize, usize>,
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
     casm_program_debug_info: &CairoProgramDebugInfo,
@@ -25,7 +25,7 @@ pub fn extract_sierra_vars_values(
 
         let casm_inst_index = pc_to_inst_indexes_map.get(&trace_entry.pc);
         if let Some(casm_inst_index) = casm_inst_index {
-            let sierra_statements_indexes = casm_to_sierra_map.get(&casm_inst_index);
+            let sierra_statements_indexes = casm_to_sierra_map.get(casm_inst_index);
             if let Some(sierra_statements_indexes) = sierra_statements_indexes {
                 for sierra_statement_index in sierra_statements_indexes {
                     let sierra_statement_debug_info = casm_program_debug_info
@@ -54,8 +54,8 @@ pub fn extract_sierra_vars_values(
                                         branch_change.refs.iter().enumerate()
                                     {
                                         let values = get_values_from_cell_expressions(
-                                            &memory,
-                                            &trace_entry,
+                                            memory,
+                                            trace_entry,
                                             &output_reference_value.expression.cells,
                                             &branch_change.ap_change,
                                         );
@@ -70,8 +70,8 @@ pub fn extract_sierra_vars_values(
                                     additional_kind_info.ref_values.iter().enumerate()
                                 {
                                     let values = get_values_from_cell_expressions(
-                                        &memory,
-                                        &trace_entry,
+                                        memory,
+                                        trace_entry,
                                         &invoke_ref.expression.cells,
                                         &ApChange::Known(0),
                                     );
@@ -87,8 +87,8 @@ pub fn extract_sierra_vars_values(
                                     additional_kind_info.ref_values.iter().enumerate()
                                 {
                                     let values = get_values_from_cell_expressions(
-                                        &memory,
-                                        &trace_entry,
+                                        memory,
+                                        trace_entry,
                                         &return_ref.expression.cells,
                                         &ApChange::Known(0),
                                     );
@@ -108,15 +108,14 @@ pub fn extract_sierra_vars_values(
 }
 
 pub fn get_values_from_cell_expressions(
-    memory: &Vec<Option<Felt252>>,
+    memory: &[Option<Felt252>],
     trace_entry: &RelocatedTraceEntry,
-    cell_expressions: &Vec<CellExpression>,
+    cell_expressions: &[CellExpression],
     ap_change: &ApChange,
 ) -> Vec<String> {
     let mut value_vec: Vec<String> = Vec::new();
     for cell_expression in cell_expressions {
-        let value =
-            get_value_from_cell_expression(&memory, &trace_entry, &cell_expression, &ap_change);
+        let value = get_value_from_cell_expression(memory, trace_entry, cell_expression, ap_change);
         match value {
             Ok(value) => {
                 value_vec.push(value);
@@ -140,7 +139,7 @@ pub enum GetCellRefValueError {
 }
 
 pub fn get_cell_ref_value(
-    memory: &Vec<Option<Felt252>>,
+    memory: &[Option<Felt252>],
     trace_entry: &RelocatedTraceEntry,
     cell_ref: &CellRef,
     ap_change: &ApChange,
@@ -163,7 +162,7 @@ pub fn get_cell_ref_value(
 }
 
 pub fn get_value_from_cell_expression(
-    memory: &Vec<Option<Felt252>>,
+    memory: &[Option<Felt252>],
     trace_entry: &RelocatedTraceEntry,
     cell_expression: &CellExpression,
     ap_change: &ApChange,

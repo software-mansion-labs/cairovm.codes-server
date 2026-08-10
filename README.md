@@ -14,7 +14,10 @@ cairovm.codes is brought to you by [Walnut](https://www.walnut.dev).
 
 The app requires the following dependencies:
 
-- [Rust](https://www.rust-lang.org/) >= 1.75.0
+- [Rust](https://www.rust-lang.org/) 1.80.0
+
+The toolchain is pinned in [`rust-toolchain.toml`](rust-toolchain.toml), so `rustup` picks
+the right version automatically.
 
 ## 👩‍💻 Local Development
 
@@ -28,6 +31,10 @@ Install the dependencies:
 
     make deps
 
+Build the workspace:
+
+    cargo build --release
+
 Start up the app and see it running at http://localhost:3000/_ah/warmup
 
     cargo run --bin server
@@ -40,6 +47,11 @@ Deployments are handled automatically, as soon as your PR is merged to `main`.
 
 For instructions see [cairovm.codes](https://github.com/walnuthq/cairovm.codes)
 
+## 🔐 Security
+
+Please report vulnerabilities privately — see [SECURITY.md](SECURITY.md).
+
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE), except for the third-party components listed in
+[NOTICE](NOTICE), which stay under the Apache License 2.0.

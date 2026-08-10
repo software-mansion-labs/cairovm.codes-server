@@ -77,8 +77,8 @@ pub fn get_sierra_to_cairo_debug_info(
             } else {
                 get_location_from_text_span(syntax_node_location_span, file_id, compiler_db)
             };
-            if cairo_location.is_some() {
-                cairo_locations.push(cairo_location.unwrap());
+            if let Some(cairo_location) = cairo_location {
+                cairo_locations.push(cairo_location);
             }
         }
         sierra_statements_to_cairo_info.insert(

@@ -1,0 +1,28 @@
+cairovm.codes-server
+Copyright (c) 2024-2026 Walnut
+
+This product includes third-party software. The MIT license in LICENSE covers
+the original work in this repository; the components listed below remain under
+their own licenses. A copy of the Apache License, Version 2.0 is included in
+licenses/Apache-2.0.txt.
+
+--------------------------------------------------------------------------------
+crates/cairo1-run
+
+Derived from the cairo1-run crate of the Cairo VM by LambdaClass:
+    https://github.com/lambdaclass/cairo-vm/tree/main/cairo1-run
+
+Copyright LambdaClass
+Licensed under the Apache License, Version 2.0.
+
+Modified by Walnut to be used as a library rather than a standalone binary.
+
+--------------------------------------------------------------------------------
+corelib/
+
+Not checked into this repository. Fetched by `make deps` from the Cairo
+compiler by StarkWare and copied into the Docker image at build time:
+    https://github.com/starkware-libs/cairo
+
+Copyright StarkWare Industries Ltd.
+Licensed under the Apache License, Version 2.0.

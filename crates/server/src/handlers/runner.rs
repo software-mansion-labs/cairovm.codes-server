@@ -13,7 +13,7 @@ use tracer::trace::{make_trace_data, TracerData};
 fn write_to_temp_file(content: &str) -> (PathBuf, PathBuf) {
     let current_dir = env::current_dir().expect("Failed to get current directory");
     let mut rng = rand::thread_rng();
-    let alphabet = Uniform::from('a'..'z');
+    let alphabet = Uniform::from('a'..='z');
     let folder_name: String = std::iter::repeat_with(|| alphabet.sample(&mut rng))
         .take(6)
         .collect();
@@ -144,7 +144,7 @@ fn format_sierra_program(sierra_program: Program) -> SierraFormattedProgram {
             .statements
             .iter()
             .enumerate()
-            .map(|(index, statement)| format!("{} // {}", statement.to_string(), index))
+            .map(|(index, statement)| format!("{} // {}", statement, index))
             .collect(),
         funcs: sierra_program
             .funcs
@@ -167,7 +167,7 @@ fn make_casm_to_sierra_map(
         .take(sierra_statement_info_len - 1)
     {
         let key = sierra_info.instruction_idx + casm_headers_len;
-        map.entry(key).or_insert_with(Vec::new).push(i);
+        map.entry(key).or_default().push(i);
     }
     map
 }
