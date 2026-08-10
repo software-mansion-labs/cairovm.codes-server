@@ -1,0 +1,5 @@
+[toolchain]
+# Keep in sync with RUST_VERSION in the Dockerfile.
+# Note: cairo-vm 1.0.1 does not compile on Rust >= 1.87 (is_multiple_of collision).
+channel = "1.80.0"
+components = ["rustfmt", "clippy"]

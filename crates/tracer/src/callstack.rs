@@ -34,8 +34,8 @@ pub struct CallstackEntry {
 
 /// Returs callstack for each trace entry in the trace.
 pub fn get_callstack(
-    trace: &Vec<RelocatedTraceEntry>,
-    memory: &Vec<Option<Felt252>>,
+    trace: &[RelocatedTraceEntry],
+    memory: &[Option<Felt252>],
     pc_inst_map: &HashMap<usize, Instruction>,
     pc_to_inst_indexes_map: &HashMap<usize, usize>,
     casm_to_sierra_map: &HashMap<usize, Vec<usize>>,
@@ -61,9 +61,9 @@ pub fn get_callstack(
         let fn_name: Option<String> = get_fn_name_at_pc(
             &trace_entry.pc,
             &fp,
-            &pc_to_inst_indexes_map,
-            &casm_to_sierra_map,
-            &sierra_to_cairo_debug_info,
+            pc_to_inst_indexes_map,
+            casm_to_sierra_map,
+            sierra_to_cairo_debug_info,
             &mut fp_to_fn_name,
         );
 
@@ -85,8 +85,8 @@ pub fn get_callstack(
         callstack[trace_entry_index].push(callstack_entry);
 
         for _ in 0..MAX_TRACEBACK_ENTRIES {
-            let opt_fp = get_memory_usize_value_at_index(&memory, fp - 2);
-            let opt_ret_pc = get_memory_usize_value_at_index(&memory, fp - 1);
+            let opt_fp = get_memory_usize_value_at_index(memory, fp - 2);
+            let opt_ret_pc = get_memory_usize_value_at_index(memory, fp - 1);
             if let Some(opt_fp) = opt_fp {
                 if opt_fp == fp {
                     break;
@@ -102,9 +102,7 @@ pub fn get_callstack(
                 let instruction1_value = memory.get(ret_pc - 1).cloned().flatten();
                 let instruction1 = pc_inst_map.get(&(ret_pc - 1));
 
-                let call_pc;
-
-                match (
+                let call_pc = match (
                     instruction0_value,
                     instruction0,
                     instruction1_value,
@@ -113,27 +111,25 @@ pub fn get_callstack(
                     (_, _, Some(_instruction1_value), Some(instruction1))
                         if instruction1.opcode == Opcode::Call =>
                     {
-                        call_pc = ret_pc - 1;
+                        ret_pc - 1
                     }
                     (
                         Some(_instruction0_value),
                         Some(instruction0),
                         Some(_instruction1_value),
                         _,
-                    ) if instruction0.opcode == Opcode::Call => {
-                        call_pc = ret_pc - 2;
-                    }
+                    ) if instruction0.opcode == Opcode::Call => ret_pc - 2,
                     _ => {
                         break;
                     }
-                }
+                };
 
                 let fn_name: Option<String> = get_fn_name_at_pc(
                     &call_pc,
                     &fp,
-                    &pc_to_inst_indexes_map,
-                    &casm_to_sierra_map,
-                    &sierra_to_cairo_debug_info,
+                    pc_to_inst_indexes_map,
+                    casm_to_sierra_map,
+                    sierra_to_cairo_debug_info,
                     &mut fp_to_fn_name,
                 );
 
@@ -182,7 +178,7 @@ pub fn get_fn_name_at_pc(
     if let Some(fn_name) = fp_to_fn_name.get(fp) {
         return Some(fn_name.clone());
     }
-    let inst_index = pc_to_inst_indexes_map.get(&pc);
+    let inst_index = pc_to_inst_indexes_map.get(pc);
     if let Some(index) = inst_index {
         let sierra_indexes = casm_to_sierra_map.get(index);
         if let Some(sierra_indexes) = sierra_indexes {
@@ -192,7 +188,7 @@ pub fn get_fn_name_at_pc(
                     .get(sierra_index)
                 {
                     if let Some(fn_name) = &sierra_statement_to_cairo_debug_info.fn_name {
-                        fp_to_fn_name.insert(fp.clone(), fn_name.clone());
+                        fp_to_fn_name.insert(*fp, fn_name.clone());
                         return Some(fn_name.clone());
                     }
                 }
@@ -203,15 +199,9 @@ pub fn get_fn_name_at_pc(
 }
 
 /// Returns the usize value at the given index in the memory.
-pub fn get_memory_usize_value_at_index(
-    memory: &Vec<Option<Felt252>>,
-    index: usize,
-) -> Option<usize> {
+pub fn get_memory_usize_value_at_index(memory: &[Option<Felt252>], index: usize) -> Option<usize> {
     match memory.get(index) {
-        Some(Some(value_felt)) => {
-            let value = value_felt.to_usize();
-            value
-        }
+        Some(Some(value_felt)) => value_felt.to_usize(),
         _ => None,
     }
 }
@@ -233,21 +223,21 @@ fn get_params(
     fn_name: &str,
     sierra_program_with_debug: &SierraProgramWithDebug,
     type_sizes: &TypeSizeMap,
-    memory: &Vec<Option<Felt252>>,
+    memory: &[Option<Felt252>],
     fp: usize,
 ) -> Vec<Param> {
     let mut params: Vec<Param> = Vec::new();
-    let function = find_function(sierra_program_with_debug, &fn_name);
+    let function = find_function(sierra_program_with_debug, fn_name);
     if let Some(function) = function {
         let mut memory_offset = 0;
         for param_type in function.signature.param_types.iter().rev() {
-            if let Some(type_size) = type_sizes.get(&param_type) {
-                let type_size_usize = type_size.clone() as usize;
+            if let Some(type_size) = type_sizes.get(param_type) {
+                let type_size_usize = *type_size as usize;
                 memory_offset += type_size_usize;
                 let mut value: Vec<usize> = Vec::new();
                 for i in 0..type_size_usize {
                     let memory_cell =
-                        get_memory_usize_value_at_index(&memory, fp - 2 - memory_offset + i);
+                        get_memory_usize_value_at_index(memory, fp - 2 - memory_offset + i);
 
                     if let Some(memory_cell_value) = memory_cell {
                         value.push(memory_cell_value);
