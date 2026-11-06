@@ -16,10 +16,6 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  INFRA_OWNER: software-mansion
-  INFRA_REPOSITORY: starkloupe-infra
-
 jobs:
   promote:
     name: open promotion PR
@@ -46,15 +42,15 @@ jobs:
         with:
           app-id: ${{ vars.INFRA_APP_ID }}
           private-key: ${{ secrets.INFRA_APP_PRIVATE_KEY }}
-          owner: ${{ env.INFRA_OWNER }}
-          repositories: ${{ env.INFRA_REPOSITORY }}
+          owner: software-mansion
+          repositories: starkloupe-infra
           permission-contents: write
 
       - name: Dispatch release to starkloupe-infra
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          gh api "repos/${INFRA_OWNER}/${INFRA_REPOSITORY}/dispatches" \
+          gh api repos/software-mansion/starkloupe-infra/dispatches \
             --method POST \
             -f event_type=cairovm-codes-server-release \
             -f "client_payload[source_commit]=${GITHUB_SHA}"
