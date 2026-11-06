@@ -1,0 +1,56 @@
+name: Release
+
+# Asks starkloupe-infra to open a pull request promoting this commit. It does
+# NOT deploy: the VM builds its own image from the commit recorded in
+# releases/cairovm-codes-server.json (see cairovm_codes_server.tf there), and
+# that only changes once the pull request is merged and Terraform Apply is run.
+
+on:
+  push:
+    tags: ["v[0-9]+.*"]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  promote:
+    name: open promotion PR
+    runs-on: ubuntu-latest
+    steps:
+      # A tag can point anywhere; only commits that landed on main are releases.
+      # Compared on GitHub rather than with git, so no checkout is needed:
+      # `main...<sha>` is "identical" or "behind" exactly when <sha> is in main.
+      - name: Require the tag to be on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status="$(gh api "repos/${GITHUB_REPOSITORY}/compare/main...${GITHUB_SHA}" --jq .status)"
+          if [ "${status}" != identical ] && [ "${status}" != behind ]; then
+            echo "Tag ${GITHUB_REF_NAME} points at ${GITHUB_SHA}, which is not on main (${status})."
+            exit 1
+          fi
+
+      # INFRA_APP_ID and INFRA_APP_PRIVATE_KEY are the same Actions variable and
+      # secret the other service repositories use; see starkloupe-infra's README.
+      - name: Create GitHub App token for starkloupe-infra
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_APP_PRIVATE_KEY }}
+          owner: software-mansion
+          repositories: starkloupe-infra
+          permission-contents: write
+
+      - name: Dispatch release to starkloupe-infra
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh api repos/software-mansion/starkloupe-infra/dispatches \
+            --method POST \
+            -f event_type=cairovm-codes-server-release \
+            -f "client_payload[source_commit]=${GITHUB_SHA}"
