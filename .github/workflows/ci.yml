@@ -13,7 +13,7 @@ jobs:
     name: Format & Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
 
       # Installs the toolchains pinned in server/ and prover/ rust-toolchain.toml,
       # including the rustfmt and clippy components declared there.
@@ -22,7 +22,7 @@ jobs:
           cd server && (rustup show active-toolchain || rustup toolchain install)
           cd ../prover && (rustup show active-toolchain || rustup toolchain install)
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: |
             server
@@ -38,14 +38,14 @@ jobs:
     name: Cargo check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
 
       - name: Install Rust toolchains
         run: |
           cd server && (rustup show active-toolchain || rustup toolchain install)
           cd ../prover && (rustup show active-toolchain || rustup toolchain install)
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@v2.9.3
         with:
           workspaces: |
             server
@@ -58,7 +58,7 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4.4.0
 
       # Scans the checked-out tree, not the commit history. History is scanned
       # separately when we rotate keys; here we only need to stop a new secret
